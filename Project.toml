@@ -1,0 +1,13 @@
+name = "BanzhafInference"
+uuid = "1dcd8bad-b4e2-4929-895b-5ffffc074544"
+authors = ["Shane Kuei-Hsien Chu (skchu@wustl.edu)"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.12.2"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
