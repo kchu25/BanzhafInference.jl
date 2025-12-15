@@ -50,10 +50,3 @@ function subsample_contributions(contributions_df; max_rows_per_group=10, verbos
 end
 
 
-function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
-    df_motifs = EpicHyperSketch.obtain_enriched_configurations_partitioned(
-        activation_dict; motif_size, ec.filter_len) # TODO need a seed as well
-    BanzhafInference.missing_columns_check(df_motifs, m_syms) 
-    BanzhafInference.convert_all_except!(df_motifs, IntType, :contribution)
-    return df_motifs
-end
