@@ -210,14 +210,15 @@ Compute random coalition Banzhaf indices for all data points.
 DataFrame with all coalition Banzhaf results across all data points
 """
 function compute_random_coalition_banzhafs_all_datapoints(
-    contributions_df::Union{DataFrame, SubDataFrame};
-    n_coalitions_per_datapoint::Int=10,
-    min_coalition_size::Int=2,
+    contributions_df::Union{DataFrame, SubDataFrame}, 
+    ac, bc;
+    # n_coalitions_per_datapoint::Int=10,
+    # min_coalition_size::Int=2,
     max_coalition_size::Union{Int,Nothing}=nothing,
-    num_samples_per_coalition::Int=100,
+    # num_samples_per_coalition::Int=100,
     seed=nothing,
-    final_nonlinearity=FunctorWrapper(x->x),
-    scale_back_function=FunctorWrapper(x->x),
+    # final_nonlinearity=FunctorWrapper(x->x),
+    # scale_back_function=FunctorWrapper(x->x),
     max_datapoints::Union{Int,Nothing}=nothing,
     save_coalition_members::Bool=false,
     verbose::Bool=true
@@ -243,13 +244,13 @@ function compute_random_coalition_banzhafs_all_datapoints(
         
         results = compute_random_coalition_banzhafs_per_datapoint(
             group,
-            n_coalitions_per_datapoint;
-            min_coalition_size=min_coalition_size,
+            bc.n_coalitions_per_datapoint;
+            min_coalition_size=bc.min_coalition_size,
             max_coalition_size=max_coalition_size,
-            num_samples_per_coalition=num_samples_per_coalition,
+            num_samples_per_coalition=bc.num_samples_per_coalition,
             seed=group_seed,
-            final_nonlinearity=final_nonlinearity,
-            scale_back_function=scale_back_function,
+            final_nonlinearity=ac.final_nonlinearity,
+            scale_back_function=ac.scale_back_function,
             save_coalition_members=save_coalition_members
         )
         

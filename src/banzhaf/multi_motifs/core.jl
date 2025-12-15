@@ -11,7 +11,7 @@ Returns: (activation_dict_positive, activation_dict_negative)
 function load_activation_dict(contributions_df::AbstractDataFrame)
     ad = Dict{EpicHyperSketch.IntType, Vector{EpicHyperSketch.ConvolutionFeature}}() # activation_dict_positive
 
-    @info "Constructing activation dictionary..."
+    # @info "Constructing activation dictionary..."
 
     data_pt_indices = contributions_df.data_pt_index
     filter_indices = contributions_df.filter_index
@@ -259,12 +259,12 @@ function add_motif_positions_columns!(df_topk, motif_cols, distance_cols, filter
 end
 
 """Build per-group lookup mapping (filter_index, position) -> row index.
-Returns a Vector of Dicts aligned with `gdf_by_data_pt_idx`."""
-function build_group_lookups(gdf_by_data_pt_idx)
+Returns a Vector of Dicts aligned with `contributions_by_data_pt`."""
+function build_group_lookups(contributions_by_data_pt)
        # infer element types from the first non-empty group
     T = Any
     U = Any
-    for g in gdf_by_data_pt_idx
+    for g in contributions_by_data_pt
         if nrow(g) > 0
             T = eltype(g.filter_index)
             U = eltype(g.position)
@@ -272,8 +272,8 @@ function build_group_lookups(gdf_by_data_pt_idx)
         end
     end
 
-    lookups = Vector{Dict{Tuple{T,U},Int}}(undef, length(gdf_by_data_pt_idx))
-    for (gi, g) in enumerate(gdf_by_data_pt_idx)
+    lookups = Vector{Dict{Tuple{T,U},Int}}(undef, length(contributions_by_data_pt))
+    for (gi, g) in enumerate(contributions_by_data_pt)
         d = Dict{Tuple{T,U},Int}()
         for r in 1:nrow(g)
             d[(g.filter_index[r], g.position[r])] = r
@@ -284,26 +284,26 @@ function build_group_lookups(gdf_by_data_pt_idx)
 end
 
 """
-obtain_contribution_views_all(df_topk, gdf_by_data_pt_idx, idx_to_key, motif_size)
+obtain_contribution_views_all(df_topk, mdc, motif_size)
 
 For each row t in df_topk returns a view into the corresponding group's
 contribution column for the "remaining" rows (i.e. rows not matched by the
 motif entries in df_topk[t, ...]). No data copy is performed; result is a
 Vector of views (AbstractVector) aligned with rows of df_topk.
 """
-function obtain_contribution_views_all(df_topk, gdf_by_data_pt_idx, idx_to_key, motif_size)
+function obtain_contribution_views_all(df_topk, mdc; motif_size=2)
     nrows = nrow(df_topk)
     views = Vector{AbstractVector{eltype(df_topk.contribution)}}(undef, nrows)
 
     motif_cols = m_symbols(motif_size)
     pos_cols = get_motif_position_symbols(motif_cols)
 
-    lookups = build_group_lookups(gdf_by_data_pt_idx)
+    lookups = build_group_lookups(mdc.contributions_by_data_pt)
 
     for t in 1:nrows
         data_pt_index = df_topk[t, :data_pt_index]
-        access_idx = idx_to_key[data_pt_index]
-        g = gdf_by_data_pt_idx[access_idx]
+        access_idx = mdc.data_pt_to_group_idx[data_pt_index]
+        g = mdc.contributions_by_data_pt[access_idx]
         lookup = lookups[access_idx]
 
         # collect matched indices and sum contributions
