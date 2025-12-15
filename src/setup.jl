@@ -1,12 +1,25 @@
+function obtain_contributions_df(data, m, processor, train_stats; threshold_stats=nothing)
+    contributions, _ = 
+        BanzhafInference.compute_and_filter_contributions(data, m, processor; 
+            train_stats=train_stats, 
+            threshold_stats=threshold_stats, 
+            predict_position=1,
+            operate_on_gpu=true
+            );
+    contributions_df = DataFrame(contributions);
+    return contributions_df
+end
+
+
 function banzhaf_setups(
     m, 
     contributions_df; 
     seed=42,
-    max_interaction_order=3, 
+    max_interaction_order=MAX_INTERACTION_ORDER, 
     train_stats=nothing, 
-    n_coalitions_per_datapoint=20,
-    min_coalition_size=2,
-    num_samples_per_coalition=100, 
+    n_coalitions_per_datapoint=N_COALITION_PER_PT,
+    min_coalition_size=MIN_COALITION_SIZE,
+    num_samples_per_coalition=NUM_SAMPLES_PER_COALITION, 
     scale_back=false
 )
     # Setup enumeration config

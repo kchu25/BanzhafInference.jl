@@ -270,8 +270,13 @@ function compute_random_coalition_banzhafs_all_datapoints(
     
     combined_results = vcat(all_results...)
     
-    verbose && @info "Generated $(nrow(combined_results)) coalitions across $n_groups data points"
+    @info "Info about combined_results.banzhaf:"
+    @info "Maximum: $(maximum(combined_results.banzhaf))"
+    @info "Minimum: $(minimum(combined_results.banzhaf))"
+    @info "Mean: $(mean(combined_results.banzhaf))"
     
+    verbose && @info "Generated $(nrow(combined_results)) coalitions across $n_groups data points"
+
     return combined_results
 end
 

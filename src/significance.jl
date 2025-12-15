@@ -1,6 +1,7 @@
-function get_significant_motifs(grouped_motifs_dfs, random_coalitions; q_thresh = 1e-5)
+function get_significant_motifs(grouped_motifs_dfs, random_coalitions; q_thresh = Q_THRESHOLD)
     p_values = Float64[]
-    for group in grouped_motifs_dfs
+    @info "Performing significance testing for $(length(grouped_motifs_dfs)) motifs against random coalitions."
+    @showprogress for group in grouped_motifs_dfs
         mtest = HypothesisTests.MannWhitneyUTest(group.banzhaf, random_coalitions.banzhaf)
         push!(p_values, pvalue(mtest))
     end

@@ -1,4 +1,4 @@
-function filter_via_magnitude(contributions_df, contribs; mag_percentile=0.95)
+function filter_via_magnitude(contributions_df, contribs; mag_percentile=MAG_PERCENTILE)
     mag_thresh = StatsBase.quantile(contributions_df.mag, mag_percentile);
     mag_mask = contributions_df.mag .> mag_thresh;
     contributions_df_filtered = contributions_df[mag_mask, :]; # copy for now to prevent parent call error later
