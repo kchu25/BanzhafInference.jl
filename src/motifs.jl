@@ -25,18 +25,16 @@ function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
     return df_motifs
 end
 
-function obtain_multi_motifs(ec, seed, contributions_df_filtered; motif_size=2, )
+function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, )
 
     df_motifs = DataFrame();
-    m_syms = BanzhafInference.m_symbols(motif_size);
-    d_syms = BanzhafInference.d_symbols(motif_size);
 
     # starts sampling
     for offset = 0:(ec.num_contrib_samples-1)
         @info "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
         # println("Generating contribution sample with seed $(cur_seed + offset)...")
         contributions_df_sampled = BanzhafInference.subsample_contributions(
-            obtain_contribution_views_all; max_rows_per_group=ec.subsample_rows, 
+            contributions_df_filtered; max_rows_per_group=ec.subsample_rows, 
             verbose=false, seed=seed+offset)
         ad = BanzhafInference.load_activation_dict(contributions_df_sampled);
         df = extract_motifs_from_sample(ad, ec, motif_size, m_syms);
@@ -51,5 +49,5 @@ function obtain_multi_motifs(ec, seed, contributions_df_filtered; motif_size=2, 
     @info "The unique motifs is $(round(n_after / n_before * 100, digits=2))% of the original."
 
     BanzhafInference.add_motif_positions_columns!(df_motifs, m_syms, d_syms, ec.filter_len)
-    return df_motifs, m_syms
+    return df_motifs
 end
