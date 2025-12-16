@@ -36,7 +36,7 @@ function obtain_multi_motifs(ec, seed, contributions_df_filtered; motif_size=2, 
         @info "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
         # println("Generating contribution sample with seed $(cur_seed + offset)...")
         contributions_df_sampled = BanzhafInference.subsample_contributions(
-            contributions_df_filtered; max_rows_per_group=ec.subsample_rows, 
+            obtain_contribution_views_all; max_rows_per_group=ec.subsample_rows, 
             verbose=false, seed=seed+offset)
         ad = BanzhafInference.load_activation_dict(contributions_df_sampled);
         df = extract_motifs_from_sample(ad, ec, motif_size, m_syms);

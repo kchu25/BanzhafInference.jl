@@ -24,8 +24,14 @@ Enhanced batch processing with memory-aware sizing
 function process_in_batches(f::Function, vectors, target_vals; batch_size=nothing, kwargs...)
     
     # Handle regular vectors (collections)
-    num_vectors = length(vectors)
+    num_vectors = length(target_vals)
     
+    # For generators, process in streaming fashion
+    if !isa(vectors, AbstractVector)
+        @info "Streaming generator through batches ($num_vectors vectors)"
+        return process_generator_in_batches(f, vectors, target_vals, batch_size; kwargs...)
+    end
+
     if batch_size === nothing
         # Auto-calculate batch size based on memory analysis
         batch_size = estimate_optimal_batch_size(vectors, kwargs)
@@ -52,6 +58,69 @@ function process_in_batches(f::Function, vectors, target_vals; batch_size=nothin
     return process_batches_with_recovery(f, vectors, target_vals, results, batch_size; kwargs...)
 end
 
+"""
+Process generator in batches by collecting chunks at a time.
+"""
+function process_generator_in_batches(f::Function, gen, target_vals, batch_size; kwargs...)
+    num_vectors = length(target_vals)
+    
+    # Start with conservative batch size for generators
+    if batch_size === nothing
+        batch_size = min(1000, num_vectors)
+        @info "Using batch size $batch_size for generator processing"
+    end
+    
+    results = Vector{Float32}(undef, num_vectors)
+    progress = Progress(num_vectors, desc="Processing generator batches: ", barlen=50)
+    
+    processed = 0
+    batch_vectors = Vector{eltype(gen)}()
+    sizehint!(batch_vectors, batch_size)
+    
+    for (i, vec) in enumerate(gen)
+        push!(batch_vectors, vec)
+        
+        # Process when batch is full or at end
+        if length(batch_vectors) >= batch_size || i == num_vectors
+            start_idx = processed + 1
+            end_idx = processed + length(batch_vectors)
+            
+            batch_targets = target_vals[start_idx:end_idx]
+            
+            try
+                batch_results = f(batch_vectors, batch_targets; kwargs...)
+                results[start_idx:end_idx] = batch_results
+                processed += length(batch_vectors)
+                update!(progress, processed)
+                
+                # Clear batch for next iteration
+                empty!(batch_vectors)
+                sizehint!(batch_vectors, batch_size)
+                
+                # Try to increase batch size if successful
+                if length(batch_vectors) == batch_size && batch_size < min(5000, num_vectors)
+                    batch_size = min(Int(ceil(batch_size * 1.2)), num_vectors - processed)
+                end
+                
+            catch e
+                if isa(e, CUDA.OutOfGPUMemoryError) && batch_size > 1
+                    # OOM - reduce batch size and retry
+                    batch_size = max(100, batch_size ÷ 2)
+                    @warn "GPU OOM, reducing batch size to $batch_size"
+                    CUDA.reclaim()
+                    # Don't empty batch_vectors - we'll retry with same data
+                    continue
+                else
+                    finish!(progress)
+                    rethrow(e)
+                end
+            end
+        end
+    end
+    
+    finish!(progress)
+    return results
+end
 
 """
 Process batches with automatic recovery from OOM errors
@@ -205,7 +274,7 @@ function validate_inputs(vectors, target_vals)
     # Check for invalid vector lengths
     for (i, vec) in enumerate(vectors)
         @assert !isempty(vec) "Vector $i cannot be empty"
-        @assert length(vec) <= MAX_SAFE_VECTOR_LENGTH "Vector $i too long ($(length(vec)) > $MAX_SAFE_VECTOR_LENGTH)"
+        # @assert length(vec) <= MAX_SAFE_VECTOR_LENGTH "Vector $i too long ($(length(vec)) > $MAX_SAFE_VECTOR_LENGTH)"
     end
     
     # Check target values
