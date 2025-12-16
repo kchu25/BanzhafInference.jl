@@ -289,48 +289,45 @@ obtain_contribution_views_all(df_topk, mdc, motif_size)
 For each row t in df_topk returns a view into the corresponding group's
 contribution column for the "remaining" rows (i.e. rows not matched by the
 motif entries in df_topk[t, ...]). No data copy is performed; result is a
-Vector of views (AbstractVector) aligned with rows of df_topk.
+generator of views (AbstractVector) aligned with rows of df_topk.
 """
 function obtain_contribution_views_all(df_topk, mdc; motif_size=2)
-    nrows = nrow(df_topk)
-    views = Vector{AbstractVector{eltype(df_topk.contribution)}}(undef, nrows)
-
     motif_cols = m_symbols(motif_size)
     pos_cols = get_motif_position_symbols(motif_cols)
-
     lookups = build_group_lookups(mdc.contributions_by_data_pt)
+    
+    return (
+        let
+            data_pt_index = df_topk[t, :data_pt_index]
+            access_idx = mdc.data_pt_to_group_idx[data_pt_index]
+            g = mdc.contributions_by_data_pt[access_idx]
+            lookup = lookups[access_idx]
 
-    for t in 1:nrows
-        data_pt_index = df_topk[t, :data_pt_index]
-        access_idx = mdc.data_pt_to_group_idx[data_pt_index]
-        g = mdc.contributions_by_data_pt[access_idx]
-        lookup = lookups[access_idx]
+            # collect matched indices and sum contributions
+            row_indices = Vector{Int}(undef, motif_size)
+            contrib_sum = zero(eltype(df_topk.contribution))
 
-        # collect matched indices and sum contributions
-        row_indices = Vector{Int}(undef, motif_size)
-        contrib_sum = zero(eltype(df_topk.contribution))
+            for i in 1:motif_size
+                mi = df_topk[t, motif_cols[i]]
+                pos = df_topk[t, pos_cols[i]]
+                idx = get(lookup, (mi, pos), nothing)
+                @assert idx !== nothing "No matching entry for motif $i in row $t"
+                row_indices[i] = idx
+                contrib_sum += g[idx, :contribution]
+            end
 
-        for i in 1:motif_size
-            mi = df_topk[t, motif_cols[i]]
-            pos = df_topk[t, pos_cols[i]]
-            idx = get(lookup, (mi, pos), nothing)
-            @assert idx !== nothing "No matching entry for motif $i in row $t"
-            row_indices[i] = idx
-            contrib_sum += g[idx, :contribution]
+            @assert contrib_sum == df_topk[t, :contribution] "Contribution sum mismatch for row $t"
+
+            # build BitVector mask (memory-efficient) and obtain remaining indices
+            n = nrow(g)
+            mask = trues(n)           # BitVector
+            mask[row_indices] .= false
+            remaining = findall(mask)
+
+            # return a view into the group's contribution column (no copy)
+            @view g.contribution[remaining]
         end
-
-        @assert contrib_sum == df_topk[t, :contribution] "Contribution sum mismatch for row $t"
-
-        # build BitVector mask (memory-efficient) and obtain remaining indices
-        n = nrow(g)
-        mask = trues(n)           # BitVector
-        mask[row_indices] .= false
-        remaining = findall(mask)
-
-        # store a view into the group's contribution column (no copy)
-        views[t] = @view g.contribution[remaining]
-    end
-
-    return views
+        for t in 1:nrow(df_topk)
+    )
 end
 
