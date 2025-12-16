@@ -56,7 +56,7 @@ Complete data preparation pipeline for Banzhaf computation:
 
 Returns the prepared contribution vectors and aligned DataFrame.
 """
-function prepare_banzhaf_data(df::DataFrame,; n_rows_threshold=2)
+function prepare_banzhaf_data(df::DataFrame,; n_rows_threshold=N_ROWS_THRESHOLD)
     # Filter and sort
     df_filtered = filtering_data_pts(df; n_rows_threshold=n_rows_threshold)
     sort!(df_filtered, :data_pt_index)

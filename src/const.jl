@@ -1,6 +1,7 @@
 
 # constants for banzhaf_setup
 const MAG_PERCENTILE = 0.95 # percentile threshold for magnitude-based filtering (filter_via_magnitude)
+const N_ROWS_THRESHOLD = 2 # number of rows each group (by :data_pt_index) must have to be kept in filtering_data_pts
 
 const MAX_INTERACTION_ORDER = 3 # maximum motif size to consider
 const N_COALITION_PER_PT = 20 # how many random coalitions to generate per data point
