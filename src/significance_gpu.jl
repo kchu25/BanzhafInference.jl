@@ -129,6 +129,69 @@ function compute_u_statistics_batched_kernel!(group_data_starts, group_data, gro
     return nothing
 end
 
+# Optimized kernel using shared memory and thread-level parallelism per test
+function compute_u_statistics_shared_mem!(group_data_starts, group_data, group_sizes, 
+                                          random_data, n_random, u_stats, n_tests)
+    # Each block handles one test with multiple threads
+    test_idx = blockIdx().x
+    thread_id = threadIdx().x
+    threads = blockDim().x
+    
+    if test_idx <= n_tests
+        n1 = group_sizes[test_idx]
+        start_idx = group_data_starts[test_idx]
+        
+        # Each thread handles a subset of group elements
+        local_sum = 0.0
+        
+        for i in thread_id:threads:n1
+            if i <= n1
+                val = group_data[start_idx + i - 1]
+                
+                # Count smaller values in group
+                rank = 1.0
+                for j in 1:n1
+                    if group_data[start_idx + j - 1] < val
+                        rank += 1.0
+                    end
+                end
+                
+                # Count smaller values in random
+                for j in 1:n_random
+                    if random_data[j] < val
+                        rank += 1.0
+                    end
+                end
+                
+                local_sum += rank
+            end
+        end
+        
+        # Parallel reduction within block using shared memory
+        shared = @cuDynamicSharedMem(Float32, threads)
+        shared[thread_id] = Float32(local_sum)
+        sync_threads()
+        
+        # Reduction
+        stride = threads ÷ 2
+        while stride > 0
+            if thread_id <= stride && thread_id + stride <= threads
+                shared[thread_id] += shared[thread_id + stride]
+            end
+            sync_threads()
+            stride ÷= 2
+        end
+        
+        if thread_id == 1
+            rank_sum = shared[1]
+            u1 = rank_sum - (n1 * (n1 + 1)) / 2.0
+            u_stats[test_idx] = u1
+        end
+    end
+    
+    return nothing
+end
+
 """
 Compute z-score for Mann-Whitney U test (normal approximation)
 """
@@ -191,20 +254,36 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
     d_group_starts = CuArray(group_data_starts)
     d_u_stats = CUDA.zeros(Float32, n_tests)
     
-    # Launch kernel
-    threads_per_block = 256
-    n_blocks = ceil(Int, n_tests / threads_per_block)
+    # Launch kernel - choose between batched (simple) or shared memory (optimized) version
+    USE_SHARED_MEM = true  # Set to false to use simple batched kernel
     
-    @info "Launching GPU kernel with $n_blocks blocks of $threads_per_block threads."
-    @cuda threads=threads_per_block blocks=n_blocks compute_u_statistics_batched_kernel!(
-        d_group_starts, d_group_data, d_group_sizes, 
-        d_random_data, n_random, d_u_stats, n_tests
-    )
+    if USE_SHARED_MEM
+        # Optimized: one block per test, multiple threads per block
+        threads_per_block = 256
+        n_blocks = n_tests
+        shared_mem_size = threads_per_block * sizeof(Float32)
+        
+        @info "Launching optimized GPU kernel with $n_blocks blocks of $threads_per_block threads (shared memory version)."
+        @cuda threads=threads_per_block blocks=n_blocks shmem=shared_mem_size compute_u_statistics_shared_mem!(
+            d_group_starts, d_group_data, d_group_sizes, 
+            d_random_data, n_random, d_u_stats, n_tests
+        )
+    else
+        # Simple: one thread per test
+        threads_per_block = 256
+        n_blocks = ceil(Int, n_tests / threads_per_block)
+        
+        @info "Launching simple GPU kernel with $n_blocks blocks of $threads_per_block threads (batched version)."
+        @cuda threads=threads_per_block blocks=n_blocks compute_u_statistics_batched_kernel!(
+            d_group_starts, d_group_data, d_group_sizes, 
+            d_random_data, n_random, d_u_stats, n_tests
+        )
+    end
     
     CUDA.synchronize()
     
     @info "GPU computation complete. Transferring results back to CPU."
-    
+
     # Transfer results back to CPU
     u_stats = Array(d_u_stats)
     group_sizes_cpu = Array(d_group_sizes)
