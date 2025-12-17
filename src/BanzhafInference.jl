@@ -5,6 +5,7 @@ using Flux, DataFrames, CUDA
 using StatsBase, Random
 using EpicHyperSketch
 using HypothesisTests, MultipleTesting
+using SpecialFunctions
 
 const FloatType = Float32
 const IntType = Int32
@@ -28,6 +29,7 @@ include("setup.jl")
 include("filter.jl")
 include("motifs.jl")
 include("significance.jl")
+include("significance_gpu.jl")
 
 export compute_and_filter_contributions
 export compute_random_coalition_banzhafs_per_datapoint

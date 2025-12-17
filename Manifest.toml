@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "aaa128fd07131a81a9b9c070fea2a5322eba007d"
+project_hash = "94708aed90197f1457ee7c17f3714fb650d0eeef"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -116,7 +116,7 @@ version = "0.4.6"
     TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [[deps.BanzhafInference]]
-deps = ["CUDA", "DataFrames", "EpicHyperSketch", "Flux", "HypothesisTests", "MultipleTesting", "ProgressMeter", "Random", "RealLabelNormalization", "Statistics", "StatsBase"]
+deps = ["CUDA", "DataFrames", "EpicHyperSketch", "Flux", "HypothesisTests", "MultipleTesting", "ProgressMeter", "Random", "RealLabelNormalization", "SpecialFunctions", "Statistics", "StatsBase"]
 path = "."
 uuid = "1dcd8bad-b4e2-4929-895b-5ffffc074544"
 version = "1.0.0-DEV"
