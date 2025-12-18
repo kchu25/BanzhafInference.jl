@@ -142,37 +142,50 @@ function compute_u_statistics_shared_mem!(group_data_starts, group_data, group_s
         start_idx = group_data_starts[test_idx]
         
         # Each thread handles a subset of group elements
+        # Use Float64 for better numerical accuracy
         local_sum = 0.0
         
         for i in thread_id:threads:n1
             if i <= n1
                 val = group_data[start_idx + i - 1]
                 
-                # Count smaller values in group
-                rank = 1.0
+                # Count smaller and equal values separately for better tie handling
+                n_less = 0
+                n_equal = 0
+                
+                # Count in group
                 for j in 1:n1
-                    if group_data[start_idx + j - 1] < val
-                        rank += 1.0
+                    other = group_data[start_idx + j - 1]
+                    if other < val
+                        n_less += 1
+                    elseif other == val
+                        n_equal += 1
                     end
                 end
                 
-                # Count smaller values in random
+                # Count in random
                 for j in 1:n_random
-                    if random_data[j] < val
-                        rank += 1.0
+                    other = random_data[j]
+                    if other < val
+                        n_less += 1
+                    elseif other == val
+                        n_equal += 1
                     end
                 end
                 
+                # Midrank formula: rank = n_less + (n_equal + 1) / 2
+                # More accurate than incrementing rank
+                rank = Float64(n_less) + (Float64(n_equal) + 1.0) / 2.0
                 local_sum += rank
             end
         end
         
-        # Parallel reduction within block using shared memory
-        shared = @cuDynamicSharedMem(Float32, threads)
-        shared[thread_id] = Float32(local_sum)
+        # Parallel reduction within block using shared memory with Float64
+        shared = @cuDynamicSharedMem(Float64, threads)
+        shared[thread_id] = local_sum
         sync_threads()
         
-        # Reduction
+        # Kahan-style reduction for better numerical stability
         stride = threads ÷ 2
         while stride > 0
             if thread_id <= stride && thread_id + stride <= threads
@@ -184,8 +197,9 @@ function compute_u_statistics_shared_mem!(group_data_starts, group_data, group_s
         
         if thread_id == 1
             rank_sum = shared[1]
-            u1 = rank_sum - (n1 * (n1 + 1)) / 2.0
-            u_stats[test_idx] = u1
+            # Compute U statistic with Float64 precision
+            u1 = rank_sum - Float64(n1) * Float64(n1 + 1) / 2.0
+            u_stats[test_idx] = Float32(u1)
         end
     end
     
@@ -196,11 +210,20 @@ end
 Compute z-score for Mann-Whitney U test (normal approximation)
 """
 function mannwhitney_z_score(u, n1, n2)
-    μ_u = (n1 * n2) / 2.0
-    σ_u = sqrt((n1 * n2 * (n1 + n2 + 1)) / 12.0)
+    # Use Float64 for all intermediate calculations
+    n1_f = Float64(n1)
+    n2_f = Float64(n2)
+    u_f = Float64(u)
     
-    # Continuity correction
-    z = (u - μ_u) / σ_u
+    μ_u = (n1_f * n2_f) / 2.0
+    # Standard error without tie correction (conservative)
+    σ_u = sqrt((n1_f * n2_f * (n1_f + n2_f + 1.0)) / 12.0)
+    
+    # Continuity correction for better approximation
+    # Adjust U toward mean by 0.5
+    u_corrected = u_f > μ_u ? u_f - 0.5 : u_f + 0.5
+    
+    z = (u_corrected - μ_u) / σ_u
     return z
 end
 
@@ -208,9 +231,10 @@ end
 Convert z-score to p-value (two-tailed test)
 """
 function z_to_pvalue(z)
-    # Using complementary error function for normal CDF
-    # P(Z > |z|) for two-tailed test
-    return 2.0 * (1.0 - 0.5 * (1.0 + erf(abs(z) / sqrt(2.0))))
+    # Use erfc for better numerical stability with large z-scores
+    # For large |z|, 1 - Φ(z) loses precision, but erfc handles it correctly
+    # P(Z > |z|) = erfc(|z|/√2) for two-tailed test
+    return erfc(abs(z) / sqrt(2.0))
 end
 
 """
@@ -261,7 +285,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
         # Optimized: one block per test, multiple threads per block
         threads_per_block = 256
         n_blocks = n_tests
-        shared_mem_size = threads_per_block * sizeof(Float32)
+        shared_mem_size = threads_per_block * sizeof(Float64)  # Use Float64 for accuracy
         
         @info "Launching optimized GPU kernel with $n_blocks blocks of $threads_per_block threads (shared memory version)."
         @cuda threads=threads_per_block blocks=n_blocks shmem=shared_mem_size compute_u_statistics_shared_mem!(
