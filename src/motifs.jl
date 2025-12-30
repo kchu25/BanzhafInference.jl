@@ -16,6 +16,28 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
     println("Mean: ", mean(banzhafs))    
 end
 
+function single_motifs_and_significance_filtering!(
+    ac, ec, contribs_filtered, contributions_df_filtered, random_coalitions;
+    mutegenesis=false)
+    single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filtered)
+
+    if mutegenesis
+        columns_of_interest = [:filter_index, :position]
+    else
+        columns_of_interest = [:filter_index]
+    end
+    @info "columns_of_interest: $(columns_of_interest)"
+
+    df_significant = filter_and_test_significance(
+            contributions_df_filtered, columns_of_interest, random_coalitions
+            );
+        
+    apply_final_filters!(contributions_df_filtered, df_significant, columns_of_interest;
+        mutegenesis=mutegenesis); 
+    return df_significant
+end
+
+
 function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
     df_motifs = EpicHyperSketch.obtain_enriched_configurations_partitioned(
         activation_dict; motif_size, ec.filter_len) # TODO need a seed as well
