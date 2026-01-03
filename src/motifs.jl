@@ -6,7 +6,7 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
         num_samples_per_vec = ac.num_samples_per_vec,
         seed = ec.seed,
         final_nonlinearity = ac.final_nonlinearity,
-        # scale_back_function = ac.scale_back_function,
+        scale_back_function = ac.scale_back_function,
     ) # setup for non-linearity later
     contributions_df_filtered.banzhaf = banzhafs;
     # report stats

@@ -250,7 +250,7 @@ function compute_random_coalition_banzhafs_all_datapoints(
             num_samples_per_coalition=bc.num_samples_per_coalition,
             seed=group_seed,
             final_nonlinearity=ac.final_nonlinearity,
-            scale_back_function=ac.scale_back_function,
+            # scale_back_function=ac.scale_back_function,
             save_coalition_members=save_coalition_members
         )
         

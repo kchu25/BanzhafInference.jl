@@ -41,7 +41,9 @@ function compute_motif_banzhafs(
         views, df_motifs.contribution; 
         num_samples_per_vec=ac.num_samples_per_vec, 
         seed=seed,
-        final_nonlinearity=ac.final_nonlinearity);
+        final_nonlinearity=ac.final_nonlinearity,
+        scale_back_function=ac.scale_back_function
+        );
     
     df_motifs.banzhaf = banzhafs;
     return df_motifs, m_syms, d_syms
