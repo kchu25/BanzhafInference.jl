@@ -1,12 +1,13 @@
 
-function obtain_contribs_filtered_and_configs(data, m, processor, train_stats)
+function obtain_contribs_filtered_and_configs(data, m, processor, train_stats;
+    scale_back=false)
  # obtain the configurations for each data point
     contributions_df = BanzhafInference.obtain_contributions_df(
         data, m, processor, train_stats);
 
     # setup the global config
     ec, ac, mdc, bc = BanzhafInference.banzhaf_setups(
-        m, contributions_df; train_stats=train_stats);
+        m, contributions_df; train_stats=train_stats, scale_back=scale_back);
 
     # ensure that each data point has at least a coalition of size N_ROWS_THRESHOLD (2 by default)
     contribs, contributions_df = 
