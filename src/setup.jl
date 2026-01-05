@@ -22,6 +22,13 @@ function banzhaf_setups(
     num_samples_per_coalition=NUM_SAMPLES_PER_COALITION, 
     scale_back=false
 )
+    # Adjust n_coalitions_per_datapoint to keep total random coalitions ≤ 10000
+    num_data_pts = maximum(contributions_df.data_pt_index)
+    n_coalitions_per_datapoint = min(
+        n_coalitions_per_datapoint, 
+        max(1, div(10000, num_data_pts))
+    )
+    
     # Setup enumeration config
     ec = BanzhafInference.MotifEnumerationConfig(
         max_interaction_order=max_interaction_order, 
