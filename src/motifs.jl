@@ -18,7 +18,7 @@ end
 
 function single_motifs_and_significance_filtering!(
     ac, ec, contribs_filtered, contributions_df_filtered, random_coalitions;
-    mutegenesis=false)
+    mutegenesis=false, top_and_bot_counts=8)
     single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filtered)
 
     if mutegenesis
@@ -31,10 +31,11 @@ function single_motifs_and_significance_filtering!(
     df_significant = filter_and_test_significance(
             contributions_df_filtered, columns_of_interest, random_coalitions
             );
-        
-    apply_final_filters!(contributions_df_filtered, df_significant, columns_of_interest;
-        mutegenesis=mutegenesis); 
-    return df_significant
+    # now keep only significant motifs in contributions_df_filtered (singletons)
+    contributions_df_filtered_singletons = 
+        apply_final_filters!(contributions_df_filtered, df_significant, columns_of_interest;
+            mutegenesis=mutegenesis, top_and_bot_counts=top_and_bot_counts); 
+    return df_significant, contributions_df_filtered_singletons
 end
 
 

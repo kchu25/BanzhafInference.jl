@@ -345,7 +345,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
     n_total = nrow(df_significant)
     filter!(row -> row.significant, df_significant)
     
-    @info "Found $(nrow(df_significant)) significant motifs out of $n_total total (FDR < $q_thresh)."
+    @info "Found $(nrow(df_significant)) significant configs out of $n_total total (FDR < $q_thresh)."
     sort!(df_significant, :mean_banzhaf, rev=true)
     
     return df_significant

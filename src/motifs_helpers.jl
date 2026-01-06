@@ -1,6 +1,6 @@
 
-function obtain_contribs_filtered_and_configs(data, m, processor, train_stats;
-    scale_back=false)
+function obtain_contribs_filtered_and_configs(
+    data, m, processor, train_stats; scale_back=false, activation_thresh=0.8)
  # obtain the configurations for each data point
     contributions_df = BanzhafInference.obtain_contributions_df(
         data, m, processor, train_stats);
@@ -17,7 +17,7 @@ function obtain_contribs_filtered_and_configs(data, m, processor, train_stats;
     # contribs_filtered is the view; leave one out where the one is the corresponding row in contributions_df_filtered
     contribs_filtered, contributions_df_filtered = 
         BanzhafInference.filter_via_magnitude(
-            contributions_df, contribs);
+            contributions_df, contribs; mag_percentile=activation_thresh);
     return contribs_filtered, contributions_df_filtered, ec, ac, mdc, bc
 end
 
@@ -110,20 +110,24 @@ end
     Apply final filtering based on significance and distance constraints
 """
 function apply_final_filters!(
-    df_motifs, df_significant, columns_of_interest; d_syms=nothing, mutegenesis=false)
+    df_motifs, df_significant, columns_of_interest; 
+    d_syms=nothing, mutegenesis=false, top_and_bot_counts=8
+    )
     
     if mutegenesis
         is_in_motif_set = construct_is_in_motif_set(df_significant, columns_of_interest);
-        filter!(row -> is_in_motif_set(row), df_motifs)
+        df_motifs_filtered = filter(row -> is_in_motif_set(row), df_motifs)
+        return df_motifs_filtered
     else
-        df_significant = get_top_bottom(df_significant, :median_banzhaf; merged=true);
+        df_significant = get_top_bottom(df_significant, :median_banzhaf; merged=true, n=top_and_bot_counts);
         is_in_motif_set = construct_is_in_motif_set(df_significant, columns_of_interest);
         if !isnothing(d_syms)
             has_positive_distances(row) = all(≥(0), (row[d] for d in d_syms))
-            filter!(row -> is_in_motif_set(row) && has_positive_distances(row), df_motifs)
+            df_motifs_filtered = filter(row -> is_in_motif_set(row) && has_positive_distances(row), df_motifs)
         else
-            filter!(row -> is_in_motif_set(row), df_motifs)
+            df_motifs_filtered = filter(row -> is_in_motif_set(row), df_motifs)
         end
+        return df_motifs_filtered
     end
 end
 
@@ -133,7 +137,8 @@ end
 function obtain_multi_motifs_and_banzhafs(
     contributions_df_filtered, mdc, ec, ac, random_coalitions; 
     seed=1, motif_sizes=[2,3], mutegenesis=false, 
-    COUNT_THRESHOLD=25, Q_THRESHOLD=1e-5)
+    COUNT_THRESHOLD=25, Q_THRESHOLD=1e-5, top_and_bot_counts=8
+    )
 
     dfs = DataFrame[];
     df_significants = DataFrame[]
@@ -152,10 +157,12 @@ function obtain_multi_motifs_and_banzhafs(
             COUNT_THRESHOLD=COUNT_THRESHOLD, Q_THRESHOLD=Q_THRESHOLD);
         
         # Apply final filters
-        apply_final_filters!(df_motifs, df_significant, columns_of_interest; 
-            d_syms=d_syms, mutegenesis=mutegenesis);
+        df_motifs_filtered = apply_final_filters!(
+            df_motifs, df_significant, columns_of_interest; 
+                d_syms=d_syms, mutegenesis=mutegenesis, 
+                    top_and_bot_counts=top_and_bot_counts);
         
-        push!(dfs, df_motifs)
+        push!(dfs, df_motifs_filtered)
         push!(df_significants, df_significant)
     end
     return dfs, df_significants
