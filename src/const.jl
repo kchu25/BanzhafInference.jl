@@ -8,3 +8,5 @@ const N_COALITION_PER_PT = 20 # how many random coalitions to generate per data 
 const MIN_COALITION_SIZE = 2 # minimum size of coalition for random coalition 
 const NUM_SAMPLES_PER_COALITION = 100 # how many samples to estimate banzhaf for a random coalition 
 const Q_THRESHOLD = 1e-5 # FDR threshold for significant motifs
+
+const MAX_BG_DATA_PTs = 10000

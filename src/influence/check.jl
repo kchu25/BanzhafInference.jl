@@ -109,6 +109,11 @@ function sanity_check(model, contributions, data_load;
 
     if !isnothing(train_stats)
         labels = apply_normalization(data_load.data[2], train_stats);
+
+        if isa(labels, Matrix)
+            labels = @view labels[predict_position, :]
+        end
+
         r2_orig = BanzhafInference.r2_score(labels, model_predictions)
         r2 = BanzhafInference.r2_score(labels, contribs2predictions)
         @info "R² with true labels vs model predictions: $(round(r2_orig, digits=3))"

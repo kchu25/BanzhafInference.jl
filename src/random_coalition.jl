@@ -270,6 +270,11 @@ function compute_random_coalition_banzhafs_all_datapoints(
     
     combined_results = vcat(all_results...)
     
+    # Subsample to MAX_BG_DATA_PTs for faster significance testing
+    if nrow(combined_results) > MAX_BG_DATA_PTs
+        combined_results = combined_results[sample(1:nrow(combined_results), MAX_BG_DATA_PTs; replace=false), :]
+    end
+    
     @info "Info about combined_results.banzhaf:"
     @info "Maximum: $(maximum(combined_results.banzhaf))"
     @info "Minimum: $(minimum(combined_results.banzhaf))"

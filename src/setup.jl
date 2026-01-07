@@ -1,9 +1,9 @@
-function obtain_contributions_df(data, m, processor, train_stats; threshold_stats=nothing)
+function obtain_contributions_df(data, m, processor, train_stats; threshold_stats=nothing, predict_position=1)
     contributions, _ = 
         BanzhafInference.compute_and_filter_contributions(data, m, processor; 
             train_stats=train_stats, 
             threshold_stats=threshold_stats, 
-            predict_position=1,
+            predict_position=predict_position,
             operate_on_gpu=true
             );
     contributions_df = DataFrame(contributions);
@@ -20,13 +20,15 @@ function banzhaf_setups(
     n_coalitions_per_datapoint=N_COALITION_PER_PT,
     min_coalition_size=MIN_COALITION_SIZE,
     num_samples_per_coalition=NUM_SAMPLES_PER_COALITION, 
-    scale_back=false
+    scale_back=false,
+    predict_position=nothing,
+    multi_output=false
 )
     # Adjust n_coalitions_per_datapoint to keep total random coalitions ≤ 10000
     num_data_pts = maximum(contributions_df.data_pt_index)
     n_coalitions_per_datapoint = min(
         n_coalitions_per_datapoint, 
-        max(1, div(10000, num_data_pts))
+        max(1, div(MAX_BG_DATA_PTs, num_data_pts))
     )
     
     # Setup enumeration config
@@ -38,9 +40,20 @@ function banzhaf_setups(
 
     # Setup Banzhaf algorithm config
     final_nonlinearity = BanzhafInference.FunctorWrapper(m.final_nonlinearity)
-    scale_back_function = (scale_back && !isnothing(train_stats)) ?
-        BanzhafInference.FunctorWrapper(train_stats.scale_back_functor) :
-        BanzhafInference.FunctorWrapper(x->x)
+
+    scale_back_function = begin 
+        if (scale_back && !isnothing(train_stats))
+            # TODO extend this to multi-output case
+            if multi_output
+                @assert !isnothing(predict_position) "predict_position must be specified for multi-output models when scale_back=true"
+                BanzhafInference.FunctorWrapper(train_stats.scale_back_functor.functors[predict_position])
+            else
+                BanzhafInference.FunctorWrapper(train_stats.scale_back_functor)
+            end
+        else
+            BanzhafInference.FunctorWrapper(x->x)
+        end
+    end
         
     ac = BanzhafInference.BanzhafAlgorithmConfig(
         final_nonlinearity=final_nonlinearity,
