@@ -107,7 +107,7 @@ function compute_and_filter_contributions(data, m, processor;
     )
     
     contributions = compute_contributions(m, data_load_complete; 
-        pseudo_model=processor);
+        pseudo_model=processor, predict_position=predict_position,);
     @info "Total contributions obtained: $(length(contributions))"
     !isnothing(threshold_stats) && begin
         filter!(x->abs(x.contribution) ≥ threshold_stats.threshold, contributions);
