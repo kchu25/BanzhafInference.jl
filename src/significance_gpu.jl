@@ -265,6 +265,10 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
     
     for group in grouped_motifs_dfs
         group_banzhaf = Float32.(group.banzhaf)
+        # Subsample if group exceeds MAX_BANZHAF_PER_GROUP
+        if length(group_banzhaf) > MAX_BANZHAF_PER_GROUP
+            group_banzhaf = group_banzhaf[sample(1:length(group_banzhaf), MAX_BANZHAF_PER_GROUP; replace=false)]
+        end
         push!(group_sizes, length(group_banzhaf))
         append!(group_data_all, group_banzhaf)
         push!(group_data_starts, current_start)

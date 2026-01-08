@@ -66,7 +66,7 @@ function process_generator_in_batches(f::Function, gen, target_vals, batch_size;
     
     # Start with conservative batch size for generators
     if batch_size === nothing
-        batch_size = min(1000, num_vectors)
+        batch_size = min(2000, num_vectors)
         @info "Using batch size $batch_size for generator processing"
     end
     
