@@ -4,7 +4,7 @@ using RealLabelNormalization
 using Flux, DataFrames, CUDA
 using StatsBase, Random
 using EpicHyperSketch
-using HypothesisTests, MultipleTesting
+using GLM, HypothesisTests, MultipleTesting, Printf
 using SpecialFunctions
 
 const FloatType = Float32
@@ -29,6 +29,7 @@ include("setup.jl")
 include("filter.jl")
 include("motifs_helpers.jl")
 include("motifs.jl")
+include("interactions.jl")
 include("significance.jl")
 include("significance_gpu.jl")
 
