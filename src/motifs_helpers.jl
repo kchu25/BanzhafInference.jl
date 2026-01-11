@@ -79,7 +79,15 @@ Returns a tuple `(top, bottom)` by default, or a single merged DataFrame if `mer
 function get_top_bottom(df, col::Symbol; n=3, merged=false)
     perm = sortperm(df[!, col], rev=true)
     nr = length(perm)
-    nr ≤ 2n && return view(df, perm[1:min(n, nr)], :), view(df, perm[max(1, nr-n+1):nr], :)
+    if nr ≤ 2n 
+        df = df[perm, :]
+        if merged 
+            return df
+        else
+            return view(df, 1:min(n, nr), :), view(df, max(1, nr-n+1):nr, :)
+        end
+        # return view(df, perm[1:min(n, nr)], :), view(df, perm[max(1, nr-n+1):nr], :)
+    end
     
     # Check if top and bottom would overlap (i.e., not enough rows to separate them)
     overlap = nr - n < n
