@@ -21,7 +21,9 @@ For a pair of motifs $(m_1, m_2)$, we have three types of observations:
 - **Singleton $m_2$**: Banzhaf values when only $m_2$ is present  
 - **Pair $m_1 m_2$**: Banzhaf values when both $m_1$ and $m_2$ co-occur
 
-### Design Matrix
+### Case 1: Different Motifs ($m_1 \neq m_2$)
+
+**Design Matrix:**
 
 | Observation Type | $x_1$ | $x_2$ | $x_1 \cdot x_2$ |
 |-----------------|-------|-------|-----------------|
@@ -29,28 +31,31 @@ For a pair of motifs $(m_1, m_2)$, we have three types of observations:
 | Singleton $m_2$ | 0 | 1 | 0 |
 | Pair $m_1 m_2$  | 1 | 1 | 1 |
 
-### Model
-
-**Full model (when $m_1 \neq m_2$):**
+**Model:**
 $$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_{12} (x_1 \cdot x_2) + \varepsilon$$
 
-**Reduced model (when $m_1 = m_2$, i.e., same motif type appearing twice):**
-$$y = \beta_0 + \beta_1 x_1 + \beta_{12} (x_1 \cdot x_2) + \varepsilon$$
+### Case 2: Same Motif ($m_1 = m_2$)
 
-When $m_1 = m_2$, including both $x_1$ and $x_2$ as separate singleton terms would be redundant since they come from the same motif type's singleton data.
+When the same motif appears twice (homotypic pair), we use **counts** instead of indicators:
 
-### Interpretation
+**Design Matrix:**
 
-- $\beta_1$: Effect of motif $m_1$ alone
-- $\beta_2$: Effect of motif $m_2$ alone  
-- $\beta_{12}$: **Interaction effect** — deviation from additivity
+| Observation Type | $x_{\text{count}}$ | $x_{\text{pair}}$ |
+|-----------------|-------------------|-------------------|
+| Singleton $m_1$ | 1 | 0 |
+| Pair $m_1 m_1$  | 2 | 1 |
 
-**Null hypothesis:** $H_0: \beta_{12} = 0$ (no interaction, effects are additive)
+**Model:**
+$$y = \beta_0 + \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{pair}} \cdot x_{\text{pair}} + \varepsilon$$
 
-**Interpretation of $\beta_{12}$:**
-- $\beta_{12} > 0$: **Synergistic** — combined effect exceeds sum of individual effects
-- $\beta_{12} < 0$: **Antagonistic** — combined effect is less than sum of individual effects
-- $\beta_{12} = 0$: **Additive** — no interaction
+**Why counts?** When testing if two copies of the same motif have a non-additive effect, we need:
+- $\beta_{\text{count}}$: The per-copy contribution of the motif
+- $\beta_{\text{pair}}$: The **interaction effect** — additional effect beyond having 2× the single-copy contribution
+
+**Interpretation:**
+- $\beta_{\text{pair}} > 0$: Synergistic — two copies together contribute more than 2× one copy
+- $\beta_{\text{pair}} < 0$: Antagonistic — diminishing returns from having two copies
+- $\beta_{\text{pair}} = 0$: Additive — two copies contribute exactly 2× one copy
 
 ---
 
@@ -59,12 +64,12 @@ When $m_1 = m_2$, including both $x_1$ and $x_2$ as separate singleton terms wou
 ### Setup
 
 For a triplet of motifs $(m_1, m_2, m_3)$, we have observations from:
-- **Singleton $m_1$**: Banzhaf values when only $m_1$ is present
-- **Singleton $m_2$**: Banzhaf values when only $m_2$ is present
-- **Singleton $m_3$**: Banzhaf values when only $m_3$ is present
+- **Singletons**: Banzhaf values when only one motif is present
 - **Triplet $m_1 m_2 m_3$**: Banzhaf values when all three co-occur
 
-### Design Matrix
+### Case 1: All Different ($m_1 \neq m_2 \neq m_3$)
+
+**Design Matrix:**
 
 | Observation Type | $x_1$ | $x_2$ | $x_3$ | $x_1 \cdot x_2 \cdot x_3$ |
 |-----------------|-------|-------|-------|---------------------------|
@@ -73,39 +78,46 @@ For a triplet of motifs $(m_1, m_2, m_3)$, we have observations from:
 | Singleton $m_3$ | 0 | 0 | 1 | 0 |
 | Triplet $m_1 m_2 m_3$ | 1 | 1 | 1 | 1 |
 
-### Model Variants
-
-The model adjusts based on how many unique motif types are in the triplet:
-
-**Case 1: All different ($m_1 \neq m_2 \neq m_3$):**
+**Model:**
 $$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_3 + \beta_{123} (x_1 \cdot x_2 \cdot x_3) + \varepsilon$$
 
-**Case 2: Two unique (e.g., $m_1 = m_2 \neq m_3$):**
-$$y = \beta_0 + \beta_1 x_1 + \beta_3 x_3 + \beta_{123} (x_1 \cdot x_2 \cdot x_3) + \varepsilon$$
+### Case 2: Two Unique Motifs (e.g., $m_2 = m_3$)
 
-Only two singleton terms are included since $m_1$ and $m_2$ share the same singleton data.
+When one motif appears twice and another appears once:
 
-**Case 3: All same ($m_1 = m_2 = m_3$):**
-$$y = \beta_0 + \beta_1 x_1 + \beta_{123} (x_1 \cdot x_2 \cdot x_3) + \varepsilon$$
+**Design Matrix:**
 
-Only one singleton term is needed.
+| Observation Type | $x_{\text{dup}}$ | $x_{\text{uniq}}$ | $x_{\text{triplet}}$ |
+|-----------------|------------------|-------------------|---------------------|
+| Singleton (duplicated motif) | 1 | 0 | 0 |
+| Singleton (unique motif) | 0 | 1 | 0 |
+| Triplet | 2 | 1 | 1 |
 
-### Why Keep the Full Interaction Term?
+**Model:**
+$$y = \beta_0 + \beta_{\text{dup}} \cdot x_{\text{dup}} + \beta_{\text{uniq}} \cdot x_{\text{uniq}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
 
-Even when motifs are of the same type (e.g., $m_1 = m_2$), the **triplet term** $x_1 \cdot x_2 \cdot x_3$ is retained because:
+**Interpretation:**
+- $\beta_{\text{dup}}$: Per-copy contribution of the duplicated motif
+- $\beta_{\text{uniq}}$: Contribution of the unique motif
+- $\beta_{\text{triplet}}$: **Interaction effect** — beyond 2×(dup) + 1×(uniq)
 
-1. Each occurrence is at a **distinct position** in the sequence
-2. The triplet represents three **distinct occurrences** of the motif
-3. We're testing whether having 3 copies together has a non-additive effect compared to having 1 copy
+### Case 3: All Same Motif ($m_1 = m_2 = m_3$)
 
-### Interpretation
+When the same motif appears three times:
 
-**Null hypothesis:** $H_0: \beta_{123} = 0$ (no 3-way interaction)
+**Design Matrix:**
 
-**Interpretation of $\beta_{123}$:**
-- $\beta_{123} > 0$: Triplet has synergistic effect beyond sum of individual motifs
-- $\beta_{123} < 0$: Triplet has antagonistic effect
-- $\beta_{123} = 0$: Triplet effect is purely additive
+| Observation Type | $x_{\text{count}}$ | $x_{\text{triplet}}$ |
+|-----------------|-------------------|---------------------|
+| Singleton | 1 | 0 |
+| Triplet | 3 | 1 |
+
+**Model:**
+$$y = \beta_0 + \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
+
+**Interpretation:**
+- $\beta_{\text{count}}$: Per-copy contribution
+- $\beta_{\text{triplet}}$: **Interaction effect** — beyond 3× the single-copy contribution
 
 ---
 
@@ -149,29 +161,35 @@ For each tested interaction, we report:
 
 ## Example Interpretation
 
-### Synergistic Pair
+### Synergistic Heterotypic Pair
 ```
 m1=5, m2=12, β_interaction=+0.35, p_adjusted=1.2e-8
 ```
-Motifs 5 and 12 together contribute 0.35 units **more** to the prediction than expected from their individual effects. This is highly significant.
+Motifs 5 and 12 together contribute 0.35 units **more** to the prediction than expected from their individual effects.
 
-### Antagonistic Triplet
+### Antagonistic Homotypic Pair
+```
+m1=7, m2=7, β_interaction=-0.15, p_adjusted=0.003
+```
+Two copies of motif 7 contribute 0.15 units **less** than 2× the single-copy contribution. This suggests diminishing returns.
+
+### Synergistic Homotypic Triplet
+```
+m1=3, m2=3, m3=3, β_interaction=+0.42, p_adjusted=0.001
+```
+Three copies of motif 3 together contribute 0.42 units **more** than 3× the single-copy contribution.
+
+### Mixed Triplet
 ```
 m1=3, m2=3, m3=7, β_interaction=-0.28, p_adjusted=0.002
 ```
-Having two copies of motif 3 plus motif 7 contributes 0.28 units **less** than expected. The same motif appearing twice may have diminishing returns when combined with motif 7.
-
-### Non-significant Interaction
-```
-m1=8, m2=15, β_interaction=+0.05, p_adjusted=0.42
-```
-No evidence of interaction; motifs 8 and 15 appear to have additive effects.
+The combination of two copies of motif 3 plus motif 7 contributes 0.28 units **less** than expected from (2×β₃ + β₇).
 
 ---
 
 ## Caveats
 
-1. **Simplified triplet model**: We use $y \sim x_1 + x_2 + x_3 + x_1 x_2 x_3$ rather than the full model with all pairwise terms. This tests whether the triplet is non-additive compared to individual effects, not whether there's a "pure" 3-way interaction beyond pairwise interactions.
+1. **Simplified triplet model**: We use a direct test against individual contributions rather than the full model with all pairwise terms. This tests whether the triplet is non-additive compared to the sum of individual effects.
 
 2. **Positional effects**: The current model doesn't account for the specific positions of motifs. Two occurrences of the same motif at different positions are treated as having identical singleton distributions.
 
