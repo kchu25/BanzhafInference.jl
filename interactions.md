@@ -10,6 +10,18 @@ Given motifs that appear individually and in combination, we want to determine i
 
 The Banzhaf index measures each motif's marginal contribution to the model's prediction. If two motifs interact, their combined Banzhaf value should differ from what we'd expect from their individual contributions.
 
+## Why Linear Regression is Appropriate
+
+**Banzhaf values are additive by construction.** The Banzhaf index computes the average marginal contribution of each motif across all possible coalitions. Under the null hypothesis of no interaction, the combined Banzhaf value of multiple motifs should equal the sum of their individual Banzhaf values:
+
+$$\text{Banzhaf}(m_1, m_2) = \text{Banzhaf}(m_1) + \text{Banzhaf}(m_2)$$
+
+This additive property makes linear regression with an interaction term the natural statistical test:
+- The **main effects** ($\beta_1, \beta_2$) capture the additive contributions
+- The **interaction term** ($\beta_{12}$) captures deviation from additivity
+
+If $\beta_{12} \neq 0$, the combined effect is non-additive, indicating epistatic interaction between the motifs.
+
 ---
 
 ## Pairwise Interaction Test
