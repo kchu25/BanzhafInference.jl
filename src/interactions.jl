@@ -268,49 +268,63 @@ end
 """
     create_interaction_summary_dict(interaction_results; use_adjusted_p=true)
 
-Create a dictionary mapping filter pairs to formatted summary strings.
-Returns Dict with key (m1, m2) => "β_interaction: X.XXX, se: X.XXX, p-value: X.XXX"
+Create dictionaries mapping filter pairs to formatted summary strings and quantitative values.
+Returns (summary_dict_str, summary_dict) where:
+- summary_dict_str: Dict with key (m1, m2) => "β_interaction: X.XXX, se: X.XXX, p-value: X.XXX"
+- summary_dict: Dict with key (m1, m2) => Dict("beta_interaction" => X, "se" => X, "p_value" => X)
 """
 function create_interaction_summary_dict(interaction_results; use_adjusted_p=true)
     p_col = use_adjusted_p && hasproperty(interaction_results, :p_adjusted) ? :p_adjusted : :p_value
     
-    summary_dict = Dict{NamedTuple{(:m1, :m2), Tuple{Int, Int}}, String}()
+    summary_dict_str = Dict{NamedTuple{(:m1, :m2), Tuple{Int, Int}}, String}()
+    summary_dict = Dict{NamedTuple{(:m1, :m2), Tuple{Int, Int}}, Dict{String, Float64}}()
     
     for row in eachrow(interaction_results)
         key = (m1=row.m1, m2=row.m2)
         p_val = getproperty(row, p_col)
         
-        value = @sprintf("β_interaction: %+.2f, se: %.4f, p-value: %.2e", 
+        summary_dict_str[key] = @sprintf("β_interaction: %+.2f, se: %.4f, p-value: %.2e", 
                          row.β_interaction, row.se, p_val)
         
-        summary_dict[key] = value
+        summary_dict[key] = Dict(
+            "beta_interaction" => row.β_interaction,
+            "se" => row.se,
+            "p_value" => p_val
+        )
     end
     
-    return summary_dict
+    return summary_dict_str, summary_dict
 end
 
 """
     create_triplet_interaction_summary_dict(interaction_results; use_adjusted_p=true)
 
-Create a dictionary mapping filter triplets to formatted summary strings.
-Returns Dict with key (m1, m2, m3) => "β_interaction: X.XXX, se: X.XXX, p-value: X.XXX"
+Create dictionaries mapping filter triplets to formatted summary strings and quantitative values.
+Returns (summary_dict_str, summary_dict) where:
+- summary_dict_str: Dict with key (m1, m2, m3) => "β_interaction: X.XXX, se: X.XXX, p-value: X.XXX"
+- summary_dict: Dict with key (m1, m2, m3) => Dict("beta_interaction" => X, "se" => X, "p_value" => X)
 """
 function create_triplet_interaction_summary_dict(interaction_results; use_adjusted_p=true)
     p_col = use_adjusted_p && hasproperty(interaction_results, :p_adjusted) ? :p_adjusted : :p_value
     
-    summary_dict = Dict{NamedTuple{(:m1, :m2, :m3), Tuple{Int, Int, Int}}, String}()
+    summary_dict_str = Dict{NamedTuple{(:m1, :m2, :m3), Tuple{Int, Int, Int}}, String}()
+    summary_dict = Dict{NamedTuple{(:m1, :m2, :m3), Tuple{Int, Int, Int}}, Dict{String, Float64}}()
     
     for row in eachrow(interaction_results)
         key = (m1=row.m1, m2=row.m2, m3=row.m3)
         p_val = getproperty(row, p_col)
         
-        value = @sprintf("β_interaction: %+.2f, se: %.4f, p-value: %.2e", 
+        summary_dict_str[key] = @sprintf("β_interaction: %+.2f, se: %.4f, p-value: %.2e", 
                          row.β_interaction, row.se, p_val)
         
-        summary_dict[key] = value
+        summary_dict[key] = Dict(
+            "beta_interaction" => row.β_interaction,
+            "se" => row.se,
+            "p_value" => p_val
+        )
     end
     
-    return summary_dict
+    return summary_dict_str, summary_dict
 end
 
 function obtain_interaction_results(contributions_df_filtered, dfs)
@@ -323,7 +337,7 @@ function obtain_interaction_results(contributions_df_filtered, dfs)
                     for (m_sym, ind) in gdf_pair.keymap]
     interaction_results_pair = DataFrame(results_pair)
     interaction_results_pair_fdr = apply_fdr_correction(interaction_results_pair, alpha=0.05)
-    interaction_summary_pair = create_interaction_summary_dict(interaction_results_pair_fdr)
+    interaction_summary_pair_str, interaction_summary_pair = create_interaction_summary_dict(interaction_results_pair_fdr)
 
     # Triplet interactions
     m_syms_triplet = BanzhafInference.m_symbols(3)
@@ -333,7 +347,8 @@ function obtain_interaction_results(contributions_df_filtered, dfs)
                        for (m_sym, ind) in gdf_triplet.keymap]
     interaction_results_triplet = DataFrame(results_triplet)
     interaction_results_triplet_fdr = apply_fdr_correction(interaction_results_triplet, alpha=0.05)
-    interaction_summary_triplet = create_triplet_interaction_summary_dict(interaction_results_triplet_fdr)
+    interaction_summary_triplet_str, interaction_summary_triplet = create_triplet_interaction_summary_dict(interaction_results_triplet_fdr)
 
-    return [interaction_summary_pair, interaction_summary_triplet]
+    return [interaction_summary_pair_str, interaction_summary_triplet_str], 
+           [interaction_summary_pair, interaction_summary_triplet]
 end
