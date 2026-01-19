@@ -22,6 +22,17 @@ This additive property makes linear regression with an interaction term the natu
 
 If $\beta_{12} \neq 0$, the combined effect is non-additive, indicating epistatic interaction between the motifs.
 
+### Important: No-Intercept Model
+
+All regression models use **no-intercept formulation** (e.g., `y ~ 0 + x1 + x2 + x1&x2`) to avoid perfect multicollinearity. With only three data groups (m₁ only, m₂ only, both), including an intercept creates a collinearity relationship:
+
+$$x_1 \cdot x_2 = x_1 + x_2 - \text{intercept}$$
+
+This makes the interaction term linearly dependent on other predictors, causing the coefficient to be undefined (NaN). By removing the intercept:
+- Coefficients represent **mean values** for each group
+- The interaction term remains identifiable
+- Statistical inference on the interaction effect is valid
+
 ---
 
 ## Pairwise Interaction Test
@@ -43,8 +54,18 @@ For a pair of motifs $(m_1, m_2)$, we have three types of observations:
 | Singleton $m_2$ | 0 | 1 | 0 |
 | Pair $m_1 m_2$  | 1 | 1 | 1 |
 
-**Model:**
-$$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_{12} (x_1 \cdot x_2) + \varepsilon$$
+**Model (no intercept):**
+$$y = \beta_1 x_1 + \beta_2 x_2 + \beta_{12} (x_1 \cdot x_2) + \varepsilon$$
+
+**Interpretation:**
+- $\beta_1$: Mean Banzhaf value when only $m_1$ is present
+- $\beta_2$: Mean Banzhaf value when only $m_2$ is present
+- $\beta_{12}$: **Interaction effect** — deviation from additivity
+
+**Predicted values:**
+- Singleton $m_1$: $\beta_1$
+- Singleton $m_2$: $\beta_2$
+- Pair $m_1 m_2$: $\beta_1 + \beta_2 + \beta_{12}$
 
 ### Case 2: Same Motif ($m_1 = m_2$)
 
@@ -57,8 +78,8 @@ When the same motif appears twice (homotypic pair), we use **counts** instead of
 | Singleton $m_1$ | 1 | 0 |
 | Pair $m_1 m_1$  | 2 | 1 |
 
-**Model:**
-$$y = \beta_0 + \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{pair}} \cdot x_{\text{pair}} + \varepsilon$$
+**Model (no intercept):**
+$$y = \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{pair}} \cdot x_{\text{pair}} + \varepsilon$$
 
 **Why counts?** When testing if two copies of the same motif have a non-additive effect, we need:
 - $\beta_{\text{count}}$: The per-copy contribution of the motif
@@ -68,6 +89,10 @@ $$y = \beta_0 + \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{pair}
 - $\beta_{\text{pair}} > 0$: Synergistic — two copies together contribute more than 2× one copy
 - $\beta_{\text{pair}} < 0$: Antagonistic — diminishing returns from having two copies
 - $\beta_{\text{pair}} = 0$: Additive — two copies contribute exactly 2× one copy
+
+**Predicted values:**
+- Singleton: $\beta_{\text{count}}$
+- Pair: $2\beta_{\text{count}} + \beta_{\text{pair}}$
 
 ---
 
@@ -90,8 +115,16 @@ For a triplet of motifs $(m_1, m_2, m_3)$, we have observations from:
 | Singleton $m_3$ | 0 | 0 | 1 | 0 |
 | Triplet $m_1 m_2 m_3$ | 1 | 1 | 1 | 1 |
 
-**Model:**
-$$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_3 + \beta_{123} (x_1 \cdot x_2 \cdot x_3) + \varepsilon$$
+**Model (no intercept):**
+$$y = \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_3 + \beta_{123} (x_1 \cdot x_2 \cdot x_3) + \varepsilon$$
+
+**Interpretation:**
+- $\beta_1, \beta_2, \beta_3$: Mean Banzhaf values for each singleton
+- $\beta_{123}$: **3-way interaction effect**
+
+**Predicted values:**
+- Singleton $m_i$: $\beta_i$
+- Triplet: $\beta_1 + \beta_2 + \beta_3 + \beta_{123}$
 
 ### Case 2: Two Unique Motifs (e.g., $m_2 = m_3$)
 
@@ -105,13 +138,18 @@ When one motif appears twice and another appears once:
 | Singleton (unique motif) | 0 | 1 | 0 |
 | Triplet | 2 | 1 | 1 |
 
-**Model:**
-$$y = \beta_0 + \beta_{\text{dup}} \cdot x_{\text{dup}} + \beta_{\text{uniq}} \cdot x_{\text{uniq}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
+**Model (no intercept):**
+$$y = \beta_{\text{dup}} \cdot x_{\text{dup}} + \beta_{\text{uniq}} \cdot x_{\text{uniq}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
 
 **Interpretation:**
 - $\beta_{\text{dup}}$: Per-copy contribution of the duplicated motif
 - $\beta_{\text{uniq}}$: Contribution of the unique motif
 - $\beta_{\text{triplet}}$: **Interaction effect** — beyond 2×(dup) + 1×(uniq)
+
+**Predicted values:**
+- Singleton (dup): $\beta_{\text{dup}}$
+- Singleton (uniq): $\beta_{\text{uniq}}$
+- Triplet: $2\beta_{\text{dup}} + \beta_{\text{uniq}} + \beta_{\text{triplet}}$
 
 ### Case 3: All Same Motif ($m_1 = m_2 = m_3$)
 
@@ -124,12 +162,16 @@ When the same motif appears three times:
 | Singleton | 1 | 0 |
 | Triplet | 3 | 1 |
 
-**Model:**
-$$y = \beta_0 + \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
+**Model (no intercept):**
+$$y = \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
 
 **Interpretation:**
 - $\beta_{\text{count}}$: Per-copy contribution
 - $\beta_{\text{triplet}}$: **Interaction effect** — beyond 3× the single-copy contribution
+
+**Predicted values:**
+- Singleton: $\beta_{\text{count}}$
+- Triplet: $3\beta_{\text{count}} + \beta_{\text{triplet}}$
 
 ---
 

@@ -65,39 +65,6 @@ function prepare_regression_data_triplet(df_m1, df_m2, df_m3, df_m1m2m3, respons
 end
 
 """
-    extract_interaction_stats(model)
-
-Extract interaction term statistics from fitted linear model.
-Returns named tuple with coefficient, standard error, t-statistic, and p-value.
-"""
-function extract_interaction_stats(model)
-    ct = coeftable(model)
-    return (
-        β = coef(model)[4],
-        se = stderror(model)[4],
-        t = ct.cols[3][4],
-        p = ct.cols[4][4]
-    )
-end
-
-"""
-    extract_triplet_interaction_stats(model)
-
-Extract 3-way interaction term statistics from fitted linear model.
-Returns named tuple with coefficient, standard error, t-statistic, and p-value.
-"""
-function extract_triplet_interaction_stats(model)
-    ct = coeftable(model)
-    # 3-way interaction is the 5th coefficient: intercept, x1, x2, x3, x1&x2&x3
-    return (
-        β = coef(model)[5],
-        se = stderror(model)[5],
-        t = ct.cols[3][5],
-        p = ct.cols[4][5]
-    )
-end
-
-"""
     test_interaction(m_sym, ind, gdf_single, gdf_pair; response_col=:banzhaf)
 
 Test for epistatic interaction between two filters using linear regression.
@@ -126,19 +93,23 @@ function test_interaction(m_sym, ind, gdf_single, gdf_pair; response_col=:banzha
         x_pair[1:n1] .= 0.0; x_pair[n1+1:end] .= 1.0    # Indicator for pair
         
         data = DataFrame(; y, x_count, x_pair)
-        model = lm(@formula(y ~ x_count + x_pair), data)
+        model = lm(@formula(y ~ 0 + x_count + x_pair), data)
         
-        # Interaction is 3rd coefficient: intercept, x1, x1&x2
+        # Interaction is 2nd coefficient (no intercept): x_count, x_pair
         ct = coeftable(model)
-        stats = (β = coef(model)[3], se = stderror(model)[3], 
-                 t = ct.cols[3][3], p = ct.cols[4][3])
+        stats = (β = coef(model)[2], se = stderror(model)[2], 
+                 t = ct.cols[3][2], p = ct.cols[4][2])
     else
         # Different motifs: use both singleton terms
         y, x1, x2, n_total = prepare_regression_data(df_m1, df_m2, df_m1m2, response_col)
         
         data = DataFrame(; y, x1, x2)
-        model = lm(@formula(y ~ x1 + x2 + x1&x2), data)
-        stats = extract_interaction_stats(model)
+        model = lm(@formula(y ~ 0 + x1 + x2 + x1&x2), data)
+        
+        # Interaction is 3rd coefficient (no intercept): x1, x2, x1&x2
+        ct = coeftable(model)
+        stats = (β = coef(model)[3], se = stderror(model)[3],
+                 t = ct.cols[3][3], p = ct.cols[4][3])
     end
     
     return (
@@ -179,11 +150,11 @@ function test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet; response_
         x_triplet = vcat(zeros(n1), ones(n123))       # Indicator for triplet (interaction term)
         
         data = DataFrame(; y, x_count, x_triplet)
-        model = lm(@formula(y ~ x_count + x_triplet), data)
+        model = lm(@formula(y ~ 0 + x_count + x_triplet), data)
         
         ct = coeftable(model)
-        stats = (β = coef(model)[3], se = stderror(model)[3],
-                 t = ct.cols[3][3], p = ct.cols[4][3])
+        stats = (β = coef(model)[2], se = stderror(model)[2],
+                 t = ct.cols[3][2], p = ct.cols[4][2])
                  
     elseif n_unique == 2
         # Two unique motifs: one appears twice, one appears once
@@ -212,19 +183,23 @@ function test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet; response_
         x_triplet = vcat(zeros(n_dup), zeros(n_uniq), ones(n123))  # Indicator for triplet
         
         data = DataFrame(; y, x_dup, x_uniq, x_triplet)
-        model = lm(@formula(y ~ x_dup + x_uniq + x_triplet), data)
+        model = lm(@formula(y ~ 0 + x_dup + x_uniq + x_triplet), data)
         
         ct = coeftable(model)
-        stats = (β = coef(model)[4], se = stderror(model)[4],
-                 t = ct.cols[3][4], p = ct.cols[4][4])
+        stats = (β = coef(model)[3], se = stderror(model)[3],
+                 t = ct.cols[3][3], p = ct.cols[4][3])
     else
         # All different motifs: full model
         y, x1, x2, x3, n_total = prepare_regression_data_triplet(
             df_m1, df_m2, df_m3, df_m1m2m3, response_col)
         
         data = DataFrame(; y, x1, x2, x3)
-        model = lm(@formula(y ~ x1 + x2 + x3 + x1&x2&x3), data)
-        stats = extract_triplet_interaction_stats(model)
+        model = lm(@formula(y ~ 0 + x1 + x2 + x3 + x1&x2&x3), data)
+        
+        # Interaction is 4th coefficient (no intercept): x1, x2, x3, x1&x2&x3
+        ct = coeftable(model)
+        stats = (β = coef(model)[4], se = stderror(model)[4],
+                 t = ct.cols[3][4], p = ct.cols[4][4])
     end
     
     return (
