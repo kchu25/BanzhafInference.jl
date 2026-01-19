@@ -215,12 +215,12 @@ function test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet; response_
 end
 
 """
-    apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=0.05)
+    apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=1e-10)
 
-Apply FDR correction to interaction p-values.
-Returns DataFrame with adjusted p-values and significance flags.
+Apply FDR correction to interaction p-values and return only significant results.
+Returns DataFrame with adjusted p-values, sorted by significance.
 """
-function apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=0.05)
+function apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=1e-10)
     # Handle empty results
     if nrow(interaction_results) == 0
         return interaction_results
@@ -239,9 +239,11 @@ function apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), a
     
     # Add to results
     valid_results[!, :p_adjusted] = adjusted_pvals
-    valid_results[!, :significant] = adjusted_pvals .< alpha
     
-    return sort(valid_results, :p_adjusted)
+    # Filter to only significant results
+    significant_results = filter(row -> row.p_adjusted < alpha, valid_results)
+    
+    return sort(significant_results, :p_adjusted)
 end
 
 """
@@ -306,7 +308,7 @@ function create_triplet_interaction_summary_dict(interaction_results; use_adjust
     return summary_dict_str, summary_dict
 end
 
-function obtain_interaction_results(contributions_df_filtered, dfs)
+function obtain_interaction_results(contributions_df_filtered, dfs; alpha=1e-10)
     # Pair interactions
     m_syms_pair = BanzhafInference.m_symbols(2)
     gdf_single = groupby(contributions_df_filtered, :filter_index)
@@ -315,7 +317,7 @@ function obtain_interaction_results(contributions_df_filtered, dfs)
     results_pair = [test_interaction(m_sym, ind, gdf_single, gdf_pair) 
                     for (m_sym, ind) in gdf_pair.keymap]
     interaction_results_pair = DataFrame(results_pair)
-    interaction_results_pair_fdr = apply_fdr_correction(interaction_results_pair, alpha=0.05)
+    interaction_results_pair_fdr = apply_fdr_correction(interaction_results_pair, alpha=alpha)
     interaction_summary_pair_str, interaction_summary_pair = create_interaction_summary_dict(interaction_results_pair_fdr)
 
     # Triplet interactions
@@ -325,7 +327,7 @@ function obtain_interaction_results(contributions_df_filtered, dfs)
     results_triplet = [test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet) 
                        for (m_sym, ind) in gdf_triplet.keymap]
     interaction_results_triplet = DataFrame(results_triplet)
-    interaction_results_triplet_fdr = apply_fdr_correction(interaction_results_triplet, alpha=0.05)
+    interaction_results_triplet_fdr = apply_fdr_correction(interaction_results_triplet, alpha=alpha)
     interaction_summary_triplet_str, interaction_summary_triplet = create_triplet_interaction_summary_dict(interaction_results_triplet_fdr)
 
     return [interaction_summary_pair_str, interaction_summary_triplet_str], 
