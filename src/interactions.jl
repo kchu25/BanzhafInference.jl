@@ -1,217 +1,94 @@
 
 """
-    prepare_regression_data(df_m1, df_m2, df_m1m2, response_col::Symbol)
+    test_kway_interaction(m_sym, ind, gdf_single, gdf_combo; response_col=:banzhaf)
 
-Efficiently construct regression arrays from singleton and pair dataframes.
-Returns (y, x1, x2) vectors for interaction testing.
-"""
-function prepare_regression_data(df_m1, df_m2, df_m1m2, response_col::Symbol)
-    n1, n2, n12 = nrow(df_m1), nrow(df_m2), nrow(df_m1m2)
-    n_total = n1 + n2 + n12
-    
-    y = Vector{Float64}(undef, n_total)
-    x1 = Vector{Float64}(undef, n_total)
-    x2 = Vector{Float64}(undef, n_total)
-    
-    # Fill response variable
-    y[1:n1] .= getproperty(df_m1, response_col)
-    y[n1+1:n1+n2] .= getproperty(df_m2, response_col)
-    y[n1+n2+1:end] .= getproperty(df_m1m2, response_col)
-    
-    # Fill design matrix: (1,0), (0,1), (1,1)
-    x1[1:n1] .= 1.0
-    x1[n1+1:n1+n2] .= 0.0
-    x1[n1+n2+1:end] .= 1.0
-    
-    x2[1:n1] .= 0.0
-    x2[n1+1:n1+n2] .= 1.0
-    x2[n1+n2+1:end] .= 1.0
-    
-    return y, x1, x2, n_total
-end
+Test for k-way interaction among `k` filters using linear regression (no intercept).
 
-"""
-    prepare_regression_data_triplet(df_m1, df_m2, df_m3, df_m1m2m3, response_col::Symbol)
+For k motifs `(m_sym[1], ..., m_sym[k])` with `u` unique motif types, the model is:
 
-Construct regression arrays from singleton and triplet dataframes.
-Returns (y, x1, x2, x3) vectors for triplet interaction testing.
-"""
-function prepare_regression_data_triplet(df_m1, df_m2, df_m3, df_m1m2m3, response_col::Symbol)
-    n1, n2, n3, n123 = nrow(df_m1), nrow(df_m2), nrow(df_m3), nrow(df_m1m2m3)
-    n_total = n1 + n2 + n3 + n123
-    
-    y = Vector{Float64}(undef, n_total)
-    x1 = Vector{Float64}(undef, n_total)
-    x2 = Vector{Float64}(undef, n_total)
-    x3 = Vector{Float64}(undef, n_total)
-    
-    # Fill response variable
-    offset = 0
-    y[offset+1:offset+n1] .= getproperty(df_m1, response_col)
-    offset += n1
-    y[offset+1:offset+n2] .= getproperty(df_m2, response_col)
-    offset += n2
-    y[offset+1:offset+n3] .= getproperty(df_m3, response_col)
-    offset += n3
-    y[offset+1:end] .= getproperty(df_m1m2m3, response_col)
-    
-    # Fill design matrix: (1,0,0), (0,1,0), (0,0,1), (1,1,1)
-    x1[1:n1] .= 1.0; x2[1:n1] .= 0.0; x3[1:n1] .= 0.0
-    x1[n1+1:n1+n2] .= 0.0; x2[n1+1:n1+n2] .= 1.0; x3[n1+1:n1+n2] .= 0.0
-    x1[n1+n2+1:n1+n2+n3] .= 0.0; x2[n1+n2+1:n1+n2+n3] .= 0.0; x3[n1+n2+1:n1+n2+n3] .= 1.0
-    x1[n1+n2+n3+1:end] .= 1.0; x2[n1+n2+n3+1:end] .= 1.0; x3[n1+n2+n3+1:end] .= 1.0
-    
-    return y, x1, x2, x3, n_total
-end
+    y ~ 0 + x_1 + x_2 + ... + x_u + x_interaction
 
-"""
-    test_interaction(m_sym, ind, gdf_single, gdf_pair; response_col=:banzhaf)
+where:
+- Each `x_i` encodes the **count** of the i-th unique motif (1 for its singleton, count in k-tuple for combo)
+- `x_interaction` is an indicator (0 for singletons, 1 for the k-tuple)
 
-Test for epistatic interaction between two filters using linear regression.
-Fits model: y ~ x1 + x2 + x1&x2 (or y ~ x1 + x1&x2 if m1==m2).
+The interaction coefficient captures deviation from additivity:
+    Banzhaf(combo) ≠ Σ count_i × Banzhaf(singleton_i)
 """
-function test_interaction(m_sym, ind, gdf_single, gdf_pair; response_col=:banzhaf)
-    # Extract data subsets
-    df_m1 = gdf_single[(filter_index = m_sym[1],)]
-    df_m2 = gdf_single[(filter_index = m_sym[2],)]
-    df_m1m2 = gdf_pair[ind]
+function test_kway_interaction(m_sym, ind, gdf_single, gdf_combo; response_col=:banzhaf)
+    k = length(m_sym)
+    motifs = [m_sym[i] for i in 1:k]
     
-    # Check for duplicate motifs
-    if m_sym[1] == m_sym[2]
-        # Same motif type: use count (1 for singleton, 2 for pair)
-        n1, n12 = nrow(df_m1), nrow(df_m1m2)
-        n_total = n1 + n12
-        
-        y = Vector{Float64}(undef, n_total)
-        x_count = Vector{Float64}(undef, n_total)  # Count of motif occurrences
-        x_pair = Vector{Float64}(undef, n_total)   # Indicator for pair
-        
-        y[1:n1] .= getproperty(df_m1, response_col)
-        y[n1+1:end] .= getproperty(df_m1m2, response_col)
-        
-        x_count[1:n1] .= 1.0; x_count[n1+1:end] .= 2.0  # Count: 1 for singleton, 2 for pair
-        x_pair[1:n1] .= 0.0; x_pair[n1+1:end] .= 1.0    # Indicator for pair
-        
-        data = DataFrame(; y, x_count, x_pair)
-        model = lm(@formula(y ~ 0 + x_count + x_pair), data)
-        
-        # Interaction is 2nd coefficient (no intercept): x_count, x_pair
-        ct = coeftable(model)
-        stats = (β = coef(model)[2], se = stderror(model)[2], 
-                 t = ct.cols[3][2], p = ct.cols[4][2])
-    else
-        # Different motifs: use both singleton terms
-        y, x1, x2, n_total = prepare_regression_data(df_m1, df_m2, df_m1m2, response_col)
-        
-        data = DataFrame(; y, x1, x2)
-        model = lm(@formula(y ~ 0 + x1 + x2 + x1&x2), data)
-        
-        # Interaction is 3rd coefficient (no intercept): x1, x2, x1&x2
-        ct = coeftable(model)
-        stats = (β = coef(model)[3], se = stderror(model)[3],
-                 t = ct.cols[3][3], p = ct.cols[4][3])
-    end
-    
-    return (
-        m1 = m_sym[1],
-        m2 = m_sym[2],
-        β_interaction = stats.β,
-        se = stats.se,
-        t_stat = stats.t,
-        p_value = stats.p,
-        n_obs = n_total
-    )
-end
-
-"""
-    test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet; response_col=:banzhaf)
-
-Test for 3-way interaction among three filters using linear regression.
-Adjusts formula to remove duplicate singleton terms when motifs are identical.
-"""
-function test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet; response_col=:banzhaf)
-    # Extract data subsets
-    df_m1 = gdf_single[(filter_index = m_sym[1],)]
-    df_m2 = gdf_single[(filter_index = m_sym[2],)]
-    df_m3 = gdf_single[(filter_index = m_sym[3],)]
-    df_m1m2m3 = gdf_triplet[ind]
-    
-    # Determine unique motifs
-    unique_motifs = unique([m_sym[1], m_sym[2], m_sym[3]])
+    # Count occurrences of each unique motif in the k-tuple
+    unique_motifs = unique(motifs)
     n_unique = length(unique_motifs)
+    motif_counts = Dict(m => count(==(m), motifs) for m in unique_motifs)
     
-    if n_unique == 1
-        # All same motif: use count (1 for singleton, 3 for triplet)
-        n1, n123 = nrow(df_m1), nrow(df_m1m2m3)
-        n_total = n1 + n123
-        
-        y = Float64.(vcat(getproperty(df_m1, response_col), getproperty(df_m1m2m3, response_col)))
-        x_count = vcat(ones(n1), fill(3.0, n123))     # Count: 1 for singleton, 3 for triplet
-        x_triplet = vcat(zeros(n1), ones(n123))       # Indicator for triplet (interaction term)
-        
-        data = DataFrame(; y, x_count, x_triplet)
-        model = lm(@formula(y ~ 0 + x_count + x_triplet), data)
-        
-        ct = coeftable(model)
-        stats = (β = coef(model)[2], se = stderror(model)[2],
-                 t = ct.cols[3][2], p = ct.cols[4][2])
-                 
-    elseif n_unique == 2
-        # Two unique motifs: one appears twice, one appears once
-        # Find which motif is duplicated and which is unique
-        if m_sym[1] == m_sym[2]
-            df_dup, df_uniq = df_m1, df_m3
-            dup_count_in_triplet = 2
-        elseif m_sym[1] == m_sym[3]
-            df_dup, df_uniq = df_m1, df_m2
-            dup_count_in_triplet = 2
-        else  # m_sym[2] == m_sym[3]
-            df_dup, df_uniq = df_m2, df_m1
-            dup_count_in_triplet = 2
-        end
-        
-        n_dup, n_uniq, n123 = nrow(df_dup), nrow(df_uniq), nrow(df_m1m2m3)
-        n_total = n_dup + n_uniq + n123
-        
-        y = Float64.(vcat(getproperty(df_dup, response_col), 
-                 getproperty(df_uniq, response_col),
-                 getproperty(df_m1m2m3, response_col)))
-        # x_dup: count of duplicated motif (1 for singleton, 2 for triplet)
-        # x_uniq: count of unique motif (1 for singleton, 1 for triplet)
-        x_dup = vcat(ones(n_dup), zeros(n_uniq), fill(Float64(dup_count_in_triplet), n123))
-        x_uniq = vcat(zeros(n_dup), ones(n_uniq), ones(n123))
-        x_triplet = vcat(zeros(n_dup), zeros(n_uniq), ones(n123))  # Indicator for triplet
-        
-        data = DataFrame(; y, x_dup, x_uniq, x_triplet)
-        model = lm(@formula(y ~ 0 + x_dup + x_uniq + x_triplet), data)
-        
-        ct = coeftable(model)
-        stats = (β = coef(model)[3], se = stderror(model)[3],
-                 t = ct.cols[3][3], p = ct.cols[4][3])
-    else
-        # All different motifs: full model
-        y, x1, x2, x3, n_total = prepare_regression_data_triplet(
-            df_m1, df_m2, df_m3, df_m1m2m3, response_col)
-        
-        data = DataFrame(; y, x1, x2, x3)
-        model = lm(@formula(y ~ 0 + x1 + x2 + x3 + x1&x2&x3), data)
-        
-        # Interaction is 4th coefficient (no intercept): x1, x2, x3, x1&x2&x3
-        ct = coeftable(model)
-        stats = (β = coef(model)[4], se = stderror(model)[4],
-                 t = ct.cols[3][4], p = ct.cols[4][4])
+    # Collect singleton DataFrames (one per unique motif)
+    singleton_dfs = [gdf_single[(filter_index = m,)] for m in unique_motifs]
+    singleton_sizes = [nrow(df) for df in singleton_dfs]
+    
+    # Combo DataFrame
+    df_combo = gdf_combo[ind]
+    n_combo = nrow(df_combo)
+    n_total = sum(singleton_sizes) + n_combo
+    
+    # Build y vector
+    y = Vector{Float64}(undef, n_total)
+    offset = 0
+    for (i, df) in enumerate(singleton_dfs)
+        n_i = singleton_sizes[i]
+        y[offset+1:offset+n_i] .= getproperty(df, response_col)
+        offset += n_i
     end
+    y[offset+1:end] .= getproperty(df_combo, response_col)
     
-    return (
-        m1 = m_sym[1],
-        m2 = m_sym[2],
-        m3 = m_sym[3],
-        β_interaction = stats.β,
-        se = stats.se,
-        t_stat = stats.t,
-        p_value = stats.p,
-        n_obs = n_total
+    # Build design matrix: n_unique count columns + 1 interaction indicator
+    X = zeros(Float64, n_total, n_unique + 1)
+    
+    offset = 0
+    for (i, df) in enumerate(singleton_dfs)
+        n_i = singleton_sizes[i]
+        # Singleton rows: count = 1 for own column, 0 for others
+        X[offset+1:offset+n_i, i] .= 1.0
+        offset += n_i
+    end
+    # Combo rows: each unique motif gets its count, interaction = 1
+    for (i, m) in enumerate(unique_motifs)
+        X[offset+1:end, i] .= Float64(motif_counts[m])
+    end
+    X[offset+1:end, n_unique+1] .= 1.0  # interaction indicator
+    
+    # Build DataFrame with column names x1, x2, ..., x_u, x_interaction
+    col_names = [Symbol("x$i") for i in 1:n_unique]
+    push!(col_names, :x_interaction)
+    
+    data = DataFrame(X, col_names)
+    data.y = y
+    
+    # Build formula programmatically: y ~ 0 + x1 + x2 + ... + x_interaction
+    rhs_terms = term.(col_names)
+    f = term(:y) ~ ConstantTerm(0) + foldl(+, rhs_terms)
+    
+    model = lm(f, data)
+    
+    # Interaction is the last coefficient
+    n_coefs = length(coef(model))
+    ct = coeftable(model)
+    stats = (
+        β = coef(model)[n_coefs], 
+        se = stderror(model)[n_coefs],
+        t = ct.cols[3][n_coefs], 
+        p = ct.cols[4][n_coefs]
     )
+    
+    # Build result NamedTuple with m1, m2, ..., mk fields
+    m_keys = Tuple(Symbol("m$i") for i in 1:k)
+    m_vals = Tuple(m_sym[i] for i in 1:k)
+    stat_keys = (:β_interaction, :se, :t_stat, :p_value, :n_obs)
+    stat_vals = (stats.β, stats.se, stats.t, stats.p, n_total)
+    
+    return NamedTuple{(m_keys..., stat_keys...)}((m_vals..., stat_vals...))
 end
 
 """
@@ -247,21 +124,25 @@ function apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), a
 end
 
 """
-    create_interaction_summary_dict(interaction_results; use_adjusted_p=true)
+    create_summary_dicts(interaction_results, k::Int; use_adjusted_p=true)
 
-Create dictionaries mapping filter pairs to formatted summary strings and quantitative values.
-Returns (summary_dict_str, summary_dict) where:
-- summary_dict_str: Dict with key (m1, m2) => "β_interaction: X.XXX, se: X.XXX, p-value: X.XXX"
-- summary_dict: Dict with key (m1, m2) => Dict("beta_interaction" => X, "se" => X, "p_value" => X)
+Create dictionaries mapping filter k-tuples to formatted summary strings and quantitative values.
+Returns (summary_dict_str, summary_dict).
+
+Key type is a NamedTuple like (m1=Int, m2=Int, ..., mk=Int).
 """
-function create_interaction_summary_dict(interaction_results; use_adjusted_p=true)
+function create_summary_dicts(interaction_results, k::Int; use_adjusted_p=true)
     p_col = use_adjusted_p && hasproperty(interaction_results, :p_adjusted) ? :p_adjusted : :p_value
     
-    summary_dict_str = Dict{NamedTuple{(:m1, :m2), Tuple{Int, Int}}, String}()
-    summary_dict = Dict{NamedTuple{(:m1, :m2), Tuple{Int, Int}}, Dict{String, Float64}}()
+    m_fields = Tuple(Symbol("m$i") for i in 1:k)
+    KeyType = NamedTuple{m_fields, NTuple{k, Int}}
+    
+    summary_dict_str = Dict{KeyType, String}()
+    summary_dict = Dict{KeyType, Dict{String, Float64}}()
     
     for row in eachrow(interaction_results)
-        key = (m1=row.m1, m2=row.m2)
+        key_vals = Tuple(getproperty(row, Symbol("m$i")) for i in 1:k)
+        key = NamedTuple{m_fields}(key_vals)
         p_val = getproperty(row, p_col)
         
         summary_dict_str[key] = @sprintf("β_interaction: %+.2f, se: %.4f, p-value: %.2e", 
@@ -278,58 +159,35 @@ function create_interaction_summary_dict(interaction_results; use_adjusted_p=tru
 end
 
 """
-    create_triplet_interaction_summary_dict(interaction_results; use_adjusted_p=true)
+    obtain_interaction_results(contributions_df_filtered, dfs; alpha=1e-10)
 
-Create dictionaries mapping filter triplets to formatted summary strings and quantitative values.
-Returns (summary_dict_str, summary_dict) where:
-- summary_dict_str: Dict with key (m1, m2, m3) => "β_interaction: X.XXX, se: X.XXX, p-value: X.XXX"
-- summary_dict: Dict with key (m1, m2, m3) => Dict("beta_interaction" => X, "se" => X, "p_value" => X)
+Test interactions for all k-tuple sizes (k=2, 3, ..., length(dfs)+1).
+`dfs` is a vector where `dfs[i]` contains the DataFrame of (i+1)-tuples.
+
+Returns `(summary_strs, summary_quants)` where each is a vector indexed by 
+position in `dfs` (i.e., `summary_strs[1]` is pairs, `summary_strs[2]` is triplets, etc.).
 """
-function create_triplet_interaction_summary_dict(interaction_results; use_adjusted_p=true)
-    p_col = use_adjusted_p && hasproperty(interaction_results, :p_adjusted) ? :p_adjusted : :p_value
-    
-    summary_dict_str = Dict{NamedTuple{(:m1, :m2, :m3), Tuple{Int, Int, Int}}, String}()
-    summary_dict = Dict{NamedTuple{(:m1, :m2, :m3), Tuple{Int, Int, Int}}, Dict{String, Float64}}()
-    
-    for row in eachrow(interaction_results)
-        key = (m1=row.m1, m2=row.m2, m3=row.m3)
-        p_val = getproperty(row, p_col)
-        
-        summary_dict_str[key] = @sprintf("β_interaction: %+.2f, se: %.4f, p-value: %.2e", 
-                         row.β_interaction, row.se, p_val)
-        
-        summary_dict[key] = Dict(
-            "beta_interaction" => row.β_interaction,
-            "se" => row.se,
-            "p_value" => p_val
-        )
-    end
-    
-    return summary_dict_str, summary_dict
-end
-
 function obtain_interaction_results(contributions_df_filtered, dfs; alpha=1e-10)
-    # Pair interactions
-    m_syms_pair = BanzhafInference.m_symbols(2)
     gdf_single = groupby(contributions_df_filtered, :filter_index)
-    gdf_pair = groupby(dfs[1], m_syms_pair)
-
-    results_pair = [test_interaction(m_sym, ind, gdf_single, gdf_pair) 
-                    for (m_sym, ind) in gdf_pair.keymap]
-    interaction_results_pair = DataFrame(results_pair)
-    interaction_results_pair_fdr = apply_fdr_correction(interaction_results_pair, alpha=alpha)
-    interaction_summary_pair_str, interaction_summary_pair = create_interaction_summary_dict(interaction_results_pair_fdr)
-
-    # Triplet interactions
-    m_syms_triplet = BanzhafInference.m_symbols(3)
-    gdf_triplet = groupby(dfs[2], m_syms_triplet)
-
-    results_triplet = [test_triplet_interaction(m_sym, ind, gdf_single, gdf_triplet) 
-                       for (m_sym, ind) in gdf_triplet.keymap]
-    interaction_results_triplet = DataFrame(results_triplet)
-    interaction_results_triplet_fdr = apply_fdr_correction(interaction_results_triplet, alpha=alpha)
-    interaction_summary_triplet_str, interaction_summary_triplet = create_triplet_interaction_summary_dict(interaction_results_triplet_fdr)
-
-    return [interaction_summary_pair_str, interaction_summary_triplet_str], 
-           [interaction_summary_pair, interaction_summary_triplet]
+    
+    summary_strs = []
+    summary_quants = []
+    
+    for (idx, df_k) in enumerate(dfs)
+        k = idx + 1  # dfs[1] = pairs (k=2), dfs[2] = triplets (k=3), etc.
+        m_syms = BanzhafInference.m_symbols(k)
+        gdf_combo = groupby(df_k, m_syms)
+        
+        results = [test_kway_interaction(m_sym, ind, gdf_single, gdf_combo) 
+                   for (m_sym, ind) in gdf_combo.keymap]
+        
+        interaction_results = DataFrame(results)
+        interaction_results_fdr = apply_fdr_correction(interaction_results; alpha=alpha)
+        dict_str, dict_quant = create_summary_dicts(interaction_results_fdr, k)
+        
+        push!(summary_strs, dict_str)
+        push!(summary_quants, dict_quant)
+    end
+    
+    return summary_strs, summary_quants
 end

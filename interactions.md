@@ -2,176 +2,119 @@
 
 ## Overview
 
-This document describes the statistical methodology for testing epistatic interactions between motifs using their Banzhaf indices. The approach uses linear regression to detect non-additive effects when motifs co-occur.
+This document describes the statistical methodology for testing epistatic interactions between motifs using their Banzhaf indices. The approach uses linear regression to detect non-additive effects when motifs co-occur, generalized to handle any $k$-way interaction ($k = 2, 3, 4, \ldots$).
 
 ## Motivation
 
 Given motifs that appear individually and in combination, we want to determine if their combined effect is **synergistic** (greater than sum of parts), **antagonistic** (less than sum), or **additive** (no interaction).
 
-The Banzhaf index measures each motif's marginal contribution to the model's prediction. If two motifs interact, their combined Banzhaf value should differ from what we'd expect from their individual contributions.
+The Banzhaf index measures each motif's marginal contribution to the model's prediction. If multiple motifs interact, their combined Banzhaf value should differ from what we'd expect from their individual contributions.
 
 ## Why Linear Regression is Appropriate
 
-**Banzhaf values are additive by construction.** The Banzhaf index computes the average marginal contribution of each motif across all possible coalitions. Under the null hypothesis of no interaction, the combined Banzhaf value of multiple motifs should equal the sum of their individual Banzhaf values:
+**Banzhaf values are additive by construction.** The Banzhaf index computes the average marginal contribution of each motif across all possible coalitions. Under the null hypothesis of no interaction, the combined Banzhaf value of a $k$-tuple should equal the sum of individual Banzhaf values:
 
-$$\text{Banzhaf}(m_1, m_2) = \text{Banzhaf}(m_1) + \text{Banzhaf}(m_2)$$
+$$\text{Banzhaf}(m_1, m_2, \ldots, m_k) = \sum_{i=1}^{k} \text{Banzhaf}(m_i)$$
 
-This additive property makes linear regression with an interaction term the natural statistical test:
-- The **main effects** ($\beta_1, \beta_2$) capture the additive contributions
-- The **interaction term** ($\beta_{12}$) captures deviation from additivity
-
-If $\beta_{12} \neq 0$, the combined effect is non-additive, indicating epistatic interaction between the motifs.
+This additive property makes linear regression with an interaction term the natural statistical test. The interaction coefficient captures deviation from additivity.
 
 ### Important: No-Intercept Model
 
-All regression models use **no-intercept formulation** (e.g., `y ~ 0 + x1 + x2 + x1&x2`) to avoid perfect multicollinearity. With only three data groups (m₁ only, m₂ only, both), including an intercept creates a collinearity relationship:
-
-$$x_1 \cdot x_2 = x_1 + x_2 - \text{intercept}$$
-
-This makes the interaction term linearly dependent on other predictors, causing the coefficient to be undefined (NaN). By removing the intercept:
-- Coefficients represent **mean values** for each group
+All regression models use **no-intercept formulation** (`y ~ 0 + ...`) to avoid perfect multicollinearity. With limited data groups (one per unique motif singleton + one combo group), including an intercept creates linear dependence among the columns, causing the interaction coefficient to be undefined (NaN). By removing the intercept:
+- Main-effect coefficients represent **mean Banzhaf values** for each singleton group
 - The interaction term remains identifiable
 - Statistical inference on the interaction effect is valid
 
 ---
 
-## Pairwise Interaction Test
+## Generalized $k$-Way Interaction Test
 
 ### Setup
 
-For a pair of motifs $(m_1, m_2)$, we have three types of observations:
-- **Singleton $m_1$**: Banzhaf values when only $m_1$ is present
-- **Singleton $m_2$**: Banzhaf values when only $m_2$ is present  
-- **Pair $m_1 m_2$**: Banzhaf values when both $m_1$ and $m_2$ co-occur
+For a $k$-tuple of motifs $(m_1, m_2, \ldots, m_k)$, let $u$ be the number of **unique** motif types. We have $u + 1$ data groups:
+- **Singleton for each unique motif $j$** ($j = 1, \ldots, u$): Banzhaf values when only that motif is present
+- **$k$-tuple combo**: Banzhaf values when all $k$ motifs co-occur
 
-### Case 1: Different Motifs ($m_1 \neq m_2$)
+For each unique motif $j$, let $c_j$ be the number of times it appears in the $k$-tuple (so $\sum_j c_j = k$).
 
-**Design Matrix:**
+### Design Matrix
 
-| Observation Type | $x_1$ | $x_2$ | $x_1 \cdot x_2$ |
-|-----------------|-------|-------|-----------------|
-| Singleton $m_1$ | 1 | 0 | 0 |
-| Singleton $m_2$ | 0 | 1 | 0 |
-| Pair $m_1 m_2$  | 1 | 1 | 1 |
+The regression has $u + 1$ predictor columns: one **count column** per unique motif, plus one **interaction indicator**.
 
-**Model (no intercept):**
-$$y = \beta_1 x_1 + \beta_2 x_2 + \beta_{12} (x_1 \cdot x_2) + \varepsilon$$
+| Observation Type | $x_1$ | $x_2$ | $\cdots$ | $x_u$ | $x_{\text{interaction}}$ |
+|-----------------|-------|-------|----------|-------|--------------------------|
+| Singleton motif 1 | 1 | 0 | $\cdots$ | 0 | 0 |
+| Singleton motif 2 | 0 | 1 | $\cdots$ | 0 | 0 |
+| $\vdots$ | $\vdots$ | $\vdots$ | $\ddots$ | $\vdots$ | $\vdots$ |
+| Singleton motif $u$ | 0 | 0 | $\cdots$ | 1 | 0 |
+| $k$-tuple combo | $c_1$ | $c_2$ | $\cdots$ | $c_u$ | 1 |
 
-**Interpretation:**
-- $\beta_1$: Mean Banzhaf value when only $m_1$ is present
-- $\beta_2$: Mean Banzhaf value when only $m_2$ is present
-- $\beta_{12}$: **Interaction effect** — deviation from additivity
+### Model (no intercept)
 
-**Predicted values:**
-- Singleton $m_1$: $\beta_1$
-- Singleton $m_2$: $\beta_2$
-- Pair $m_1 m_2$: $\beta_1 + \beta_2 + \beta_{12}$
+$$y = \sum_{j=1}^{u} \beta_j \cdot x_j + \beta_{\text{int}} \cdot x_{\text{interaction}} + \varepsilon$$
 
-### Case 2: Same Motif ($m_1 = m_2$)
+### Interpretation
 
-When the same motif appears twice (homotypic pair), we use **counts** instead of indicators:
+- $\beta_j$: Mean Banzhaf value per copy of unique motif $j$
+- $\beta_{\text{int}}$: **Interaction effect** — deviation from additivity
 
-**Design Matrix:**
+**Null hypothesis:** $H_0: \beta_{\text{int}} = 0$
 
-| Observation Type | $x_{\text{count}}$ | $x_{\text{pair}}$ |
-|-----------------|-------------------|-------------------|
-| Singleton $m_1$ | 1 | 0 |
-| Pair $m_1 m_1$  | 2 | 1 |
+**Predicted values under the model:**
+- Singleton of motif $j$: $\hat{y} = \beta_j$
+- $k$-tuple combo: $\hat{y} = \sum_{j=1}^{u} c_j \cdot \beta_j + \beta_{\text{int}}$
 
-**Model (no intercept):**
-$$y = \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{pair}} \cdot x_{\text{pair}} + \varepsilon$$
+Under the null (no interaction): $\hat{y}_{\text{combo}} = \sum_{j} c_j \cdot \beta_j$, i.e., the combo Banzhaf is the sum of per-copy contributions.
 
-**Why counts?** When testing if two copies of the same motif have a non-additive effect, we need:
-- $\beta_{\text{count}}$: The per-copy contribution of the motif
-- $\beta_{\text{pair}}$: The **interaction effect** — additional effect beyond having 2× the single-copy contribution
+### Sign of $\beta_{\text{int}}$
 
-**Interpretation:**
-- $\beta_{\text{pair}} > 0$: Synergistic — two copies together contribute more than 2× one copy
-- $\beta_{\text{pair}} < 0$: Antagonistic — diminishing returns from having two copies
-- $\beta_{\text{pair}} = 0$: Additive — two copies contribute exactly 2× one copy
-
-**Predicted values:**
-- Singleton: $\beta_{\text{count}}$
-- Pair: $2\beta_{\text{count}} + \beta_{\text{pair}}$
+- $\beta_{\text{int}} > 0$: **Synergistic** — the combo produces more than the sum of parts
+- $\beta_{\text{int}} < 0$: **Antagonistic** — diminishing returns / interference
+- $\beta_{\text{int}} = 0$: **Additive** — no interaction
 
 ---
 
-## Triplet Interaction Test
+## Concrete Examples
 
-### Setup
+### Example 1: All Different Motifs ($k=3$, $u=3$)
 
-For a triplet of motifs $(m_1, m_2, m_3)$, we have observations from:
-- **Singletons**: Banzhaf values when only one motif is present
-- **Triplet $m_1 m_2 m_3$**: Banzhaf values when all three co-occur
+Motifs $(m_1, m_2, m_3)$ all distinct. Counts: $c_1 = c_2 = c_3 = 1$.
 
-### Case 1: All Different ($m_1 \neq m_2 \neq m_3$)
-
-**Design Matrix:**
-
-| Observation Type | $x_1$ | $x_2$ | $x_3$ | $x_1 \cdot x_2 \cdot x_3$ |
-|-----------------|-------|-------|-------|---------------------------|
+| Obs | $x_1$ | $x_2$ | $x_3$ | $x_{\text{int}}$ |
+|-----|-------|-------|-------|------------------|
 | Singleton $m_1$ | 1 | 0 | 0 | 0 |
 | Singleton $m_2$ | 0 | 1 | 0 | 0 |
 | Singleton $m_3$ | 0 | 0 | 1 | 0 |
-| Triplet $m_1 m_2 m_3$ | 1 | 1 | 1 | 1 |
+| Triplet | 1 | 1 | 1 | 1 |
 
-**Model (no intercept):**
-$$y = \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_3 + \beta_{123} (x_1 \cdot x_2 \cdot x_3) + \varepsilon$$
+Model: $y = \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_3 + \beta_{\text{int}} \cdot x_{\text{int}}$
 
-**Interpretation:**
-- $\beta_1, \beta_2, \beta_3$: Mean Banzhaf values for each singleton
-- $\beta_{123}$: **3-way interaction effect**
+### Example 2: Homotypic Pair ($k=2$, $u=1$)
 
-**Predicted values:**
-- Singleton $m_i$: $\beta_i$
-- Triplet: $\beta_1 + \beta_2 + \beta_3 + \beta_{123}$
+Same motif twice: $(m, m)$. Count: $c_1 = 2$.
 
-### Case 2: Two Unique Motifs (e.g., $m_2 = m_3$)
+| Obs | $x_1$ | $x_{\text{int}}$ |
+|-----|-------|------------------|
+| Singleton $m$ | 1 | 0 |
+| Pair $(m,m)$ | 2 | 1 |
 
-When one motif appears twice and another appears once:
+Model: $y = \beta_1 x_1 + \beta_{\text{int}} \cdot x_{\text{int}}$
 
-**Design Matrix:**
+Predicted pair value: $2\beta_1 + \beta_{\text{int}}$. Tests whether two copies deviate from $2\times$ one copy.
 
-| Observation Type | $x_{\text{dup}}$ | $x_{\text{uniq}}$ | $x_{\text{triplet}}$ |
-|-----------------|------------------|-------------------|---------------------|
-| Singleton (duplicated motif) | 1 | 0 | 0 |
-| Singleton (unique motif) | 0 | 1 | 0 |
-| Triplet | 2 | 1 | 1 |
+### Example 3: Mixed 4-tuple ($k=4$, $u=2$)
 
-**Model (no intercept):**
-$$y = \beta_{\text{dup}} \cdot x_{\text{dup}} + \beta_{\text{uniq}} \cdot x_{\text{uniq}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
+Motifs $(A, A, A, B)$. Counts: $c_A = 3, c_B = 1$.
 
-**Interpretation:**
-- $\beta_{\text{dup}}$: Per-copy contribution of the duplicated motif
-- $\beta_{\text{uniq}}$: Contribution of the unique motif
-- $\beta_{\text{triplet}}$: **Interaction effect** — beyond 2×(dup) + 1×(uniq)
+| Obs | $x_A$ | $x_B$ | $x_{\text{int}}$ |
+|-----|-------|-------|------------------|
+| Singleton $A$ | 1 | 0 | 0 |
+| Singleton $B$ | 0 | 1 | 0 |
+| 4-tuple | 3 | 1 | 1 |
 
-**Predicted values:**
-- Singleton (dup): $\beta_{\text{dup}}$
-- Singleton (uniq): $\beta_{\text{uniq}}$
-- Triplet: $2\beta_{\text{dup}} + \beta_{\text{uniq}} + \beta_{\text{triplet}}$
+Model: $y = \beta_A x_A + \beta_B x_B + \beta_{\text{int}} \cdot x_{\text{int}}$
 
-### Case 3: All Same Motif ($m_1 = m_2 = m_3$)
-
-When the same motif appears three times:
-
-**Design Matrix:**
-
-| Observation Type | $x_{\text{count}}$ | $x_{\text{triplet}}$ |
-|-----------------|-------------------|---------------------|
-| Singleton | 1 | 0 |
-| Triplet | 3 | 1 |
-
-**Model (no intercept):**
-$$y = \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{triplet}} \cdot x_{\text{triplet}} + \varepsilon$$
-
-**Interpretation:**
-- $\beta_{\text{count}}$: Per-copy contribution
-- $\beta_{\text{triplet}}$: **Interaction effect** — beyond 3× the single-copy contribution
-
-**Predicted values:**
-- Singleton: $\beta_{\text{count}}$
-- Triplet: $3\beta_{\text{count}} + \beta_{\text{triplet}}$
+Predicted 4-tuple: $3\beta_A + \beta_B + \beta_{\text{int}}$
 
 ---
 
@@ -179,73 +122,71 @@ $$y = \beta_{\text{count}} \cdot x_{\text{count}} + \beta_{\text{triplet}} \cdot
 
 ### Test Statistic
 
-For each interaction coefficient, we compute:
-$$t = \frac{\hat{\beta}}{\text{SE}(\hat{\beta})}$$
+For the interaction coefficient:
+$$t = \frac{\hat{\beta}_{\text{int}}}{\text{SE}(\hat{\beta}_{\text{int}})}$$
 
 The p-value is computed from the t-distribution with appropriate degrees of freedom.
 
 ### Multiple Testing Correction
 
-Since we test many motif pairs/triplets simultaneously, we apply **Benjamini-Hochberg FDR correction**:
+Since we test many motif $k$-tuples simultaneously, we apply **Benjamini-Hochberg FDR correction**:
 
 1. Sort p-values: $p_{(1)} \leq p_{(2)} \leq \cdots \leq p_{(m)}$
-2. Find largest $k$ such that $p_{(k)} \leq \frac{k}{m} \alpha$
-3. Reject all hypotheses with $p_{(i)} \leq p_{(k)}$
+2. Find largest $i$ such that $p_{(i)} \leq \frac{i}{m} \alpha$
+3. Reject all hypotheses with $p_{(j)} \leq p_{(i)}$
 
-Default significance threshold: $\alpha = 0.05$ (FDR-adjusted)
+Default significance threshold: $\alpha = 10^{-10}$ (FDR-adjusted). Only significant results are retained.
 
 ---
 
 ## Output
 
-For each tested interaction, we report:
+For each tested $k$-way interaction, we report:
 
 | Field | Description |
 |-------|-------------|
-| `m1`, `m2` (,`m3`) | Motif filter indices |
+| `m1`, `m2`, ..., `mk` | Motif filter indices in the $k$-tuple |
 | `β_interaction` | Estimated interaction coefficient |
 | `se` | Standard error of the estimate |
 | `t_stat` | t-statistic |
 | `p_value` | Raw p-value |
 | `p_adjusted` | FDR-adjusted p-value |
-| `significant` | Boolean: is p_adjusted < 0.05? |
 | `n_obs` | Number of observations in the regression |
+
+Results are returned as a vector of dictionaries, one per $k$ value:
+- `summary_strs[1]` → pairs ($k=2$)
+- `summary_strs[2]` → triplets ($k=3$)
+- `summary_strs[i]` → $(i+1)$-tuples
 
 ---
 
-## Example Interpretation
+## Example Interpretations
 
 ### Synergistic Heterotypic Pair
 ```
 m1=5, m2=12, β_interaction=+0.35, p_adjusted=1.2e-8
 ```
-Motifs 5 and 12 together contribute 0.35 units **more** to the prediction than expected from their individual effects.
+Motifs 5 and 12 together contribute 0.35 units **more** than expected from their individual effects.
 
 ### Antagonistic Homotypic Pair
 ```
-m1=7, m2=7, β_interaction=-0.15, p_adjusted=0.003
+m1=7, m2=7, β_interaction=-0.15, p_adjusted=3e-3
 ```
-Two copies of motif 7 contribute 0.15 units **less** than 2× the single-copy contribution. This suggests diminishing returns.
+Two copies of motif 7 contribute 0.15 units **less** than 2× the single-copy contribution.
 
-### Synergistic Homotypic Triplet
+### Synergistic 4-tuple
 ```
-m1=3, m2=3, m3=3, β_interaction=+0.42, p_adjusted=0.001
+m1=3, m2=3, m3=3, m4=7, β_interaction=+0.52, p_adjusted=1e-12
 ```
-Three copies of motif 3 together contribute 0.42 units **more** than 3× the single-copy contribution.
-
-### Mixed Triplet
-```
-m1=3, m2=3, m3=7, β_interaction=-0.28, p_adjusted=0.002
-```
-The combination of two copies of motif 3 plus motif 7 contributes 0.28 units **less** than expected from (2×β₃ + β₇).
+Three copies of motif 3 plus motif 7 together contribute 0.52 units **more** than $(3\beta_3 + \beta_7)$.
 
 ---
 
 ## Caveats
 
-1. **Simplified triplet model**: We use a direct test against individual contributions rather than the full model with all pairwise terms. This tests whether the triplet is non-additive compared to the sum of individual effects.
+1. **Direct interaction test**: We test whether the $k$-tuple is non-additive compared to the sum of individual motif effects. We do not decompose into lower-order interactions (pairwise within a triplet, etc.).
 
-2. **Positional effects**: The current model doesn't account for the specific positions of motifs. Two occurrences of the same motif at different positions are treated as having identical singleton distributions.
+2. **Positional effects**: The current model doesn't account for the specific positions of motifs. Multiple occurrences of the same motif at different positions are treated as having identical singleton distributions.
 
 3. **Sample size**: Interaction tests require sufficient observations in each category. Motif combinations with few observations may have unreliable estimates.
 
