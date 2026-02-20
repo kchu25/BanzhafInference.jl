@@ -11,6 +11,20 @@ function obtain_contributions_df(data, m, processor, train_stats; threshold_stat
 end
 
 
+function _make_scale_back_function(scale_back, train_stats, multi_output, predict_position)
+    if scale_back && !isnothing(train_stats)
+        # TODO extend this to multi-output case
+        if multi_output
+            @assert !isnothing(predict_position) "predict_position must be specified for multi-output models when scale_back=true"
+            BanzhafInference.FunctorWrapper(train_stats.scale_back_functor.functors[predict_position])
+        else
+            BanzhafInference.FunctorWrapper(train_stats.scale_back_functor)
+        end
+    else
+        BanzhafInference.FunctorWrapper(x->x)
+    end
+end
+
 function banzhaf_setups(
     m, 
     contributions_df; 
@@ -41,19 +55,7 @@ function banzhaf_setups(
     # Setup Banzhaf algorithm config
     final_nonlinearity = BanzhafInference.FunctorWrapper(m.final_nonlinearity)
 
-    scale_back_function = begin 
-        if (scale_back && !isnothing(train_stats))
-            # TODO extend this to multi-output case
-            if multi_output
-                @assert !isnothing(predict_position) "predict_position must be specified for multi-output models when scale_back=true"
-                BanzhafInference.FunctorWrapper(train_stats.scale_back_functor.functors[predict_position])
-            else
-                BanzhafInference.FunctorWrapper(train_stats.scale_back_functor)
-            end
-        else
-            BanzhafInference.FunctorWrapper(x->x)
-        end
-    end
+    scale_back_function = _make_scale_back_function(scale_back, train_stats, multi_output, predict_position)
         
     ac = BanzhafInference.BanzhafAlgorithmConfig(
         final_nonlinearity=final_nonlinearity,

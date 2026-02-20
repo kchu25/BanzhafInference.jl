@@ -104,7 +104,6 @@ function sanity_check(model, contributions, data_load;
         predict_position=predict_position,
         operate_on_gpu=operate_on_gpu
     )
-
     validate_predictions(model_predictions, contribs2predictions)
 
     if !isnothing(train_stats)
