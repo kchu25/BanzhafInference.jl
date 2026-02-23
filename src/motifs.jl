@@ -55,13 +55,13 @@ function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
 end
 
 
-function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, )
+function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, dedup_every=5)
 
     dedup_cols = Not(:contribution)
     df_motifs = DataFrame()
     n_before = 0
 
-    # Collect motifs with per-batch deduplication to bound memory
+    # Collect motifs with periodic deduplication to bound memory
     for offset = 0:(ec.num_contrib_samples-1)
         @info "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
         contributions_df_sampled = BanzhafInference.subsample_contributions(
@@ -71,9 +71,15 @@ function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered
         df = extract_motifs_from_sample(ad, ec, motif_size, m_syms)
         n_before += nrow(df)
         append!(df_motifs, df)
+        
+        # Periodically deduplicate to keep memory bounded
+        if (offset + 1) % dedup_every == 0 || offset == ec.num_contrib_samples - 1
+            unique!(df_motifs, dedup_cols)
+            GC.gc()  # force garbage collection to reclaim memory
+        end
     end
 
-    # Final cross-batch dedup (much smaller now)
+    # Final dedup (mostly already unique from periodic dedup)
     unique!(df_motifs, dedup_cols)
 
     n_after = nrow(df_motifs)
