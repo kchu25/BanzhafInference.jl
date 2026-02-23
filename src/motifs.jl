@@ -54,26 +54,30 @@ function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
     return df_motifs
 end
 
+
 function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, )
 
-    df_motifs = DataFrame();
+    dedup_cols = Not(:contribution)
+    df_motifs = DataFrame()
+    n_before = 0
 
-    # starts sampling
+    # Collect motifs with per-batch deduplication to bound memory
     for offset = 0:(ec.num_contrib_samples-1)
         @info "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
-        # println("Generating contribution sample with seed $(cur_seed + offset)...")
         contributions_df_sampled = BanzhafInference.subsample_contributions(
             contributions_df_filtered; max_rows_per_group=ec.subsample_rows, 
             verbose=false, seed=seed+offset)
-        ad = BanzhafInference.load_activation_dict(contributions_df_sampled);
-        df = extract_motifs_from_sample(ad, ec, motif_size, m_syms);
-        append!(df_motifs, df);
+        ad = BanzhafInference.load_activation_dict(contributions_df_sampled)
+        df = extract_motifs_from_sample(ad, ec, motif_size, m_syms)
+        n_before += nrow(df)
+        append!(df_motifs, df)
     end
 
-    n_before = nrow(df_motifs)
-    @info "Extracted $n_before motifs before deduplication."
-    unique!(df_motifs, Not(:contribution))
+    # Final cross-batch dedup (much smaller now)
+    unique!(df_motifs, dedup_cols)
+
     n_after = nrow(df_motifs)
+    @info "Extracted $n_before motifs before deduplication."
     @info "Retained $n_after unique motifs after deduplication."
     @info "The unique motifs is $(round(n_after / n_before * 100, digits=2))% of the original."
 
