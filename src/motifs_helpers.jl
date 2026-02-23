@@ -24,6 +24,7 @@ function obtain_contribs_filtered_and_configs(
     return contribs_filtered, contributions_df_filtered, ec, ac, mdc, bc
 end
 
+is_identity(f) = isa(f, BanzhafInference.Functor1Arg) && f.functor === identity
 
 """
     Compute motifs and their Banzhaf indices for a given motif size
@@ -38,18 +39,21 @@ function compute_motif_banzhafs(
         ec, seed, m_syms, d_syms, contributions_df_filtered; 
         motif_size=motif_size);
     
-    @time views = BanzhafInference.obtain_contribution_views_all(
+    if is_identity(ac.final_nonlinearity)
+        df_motifs.banzhaf = df_motifs.contribution;
+    else
+        @time views = BanzhafInference.obtain_contribution_views_all(
         df_motifs, mdc; motif_size=motif_size);
-    
-    banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
-        views, df_motifs.contribution; 
-        num_samples_per_vec=ac.num_samples_per_vec, 
-        seed=seed,
-        final_nonlinearity=ac.final_nonlinearity,
-        scale_back_function=ac.scale_back_function
-        );
-    
-    df_motifs.banzhaf = banzhafs;
+        banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
+            views, df_motifs.contribution; 
+            num_samples_per_vec=ac.num_samples_per_vec, 
+            seed=seed,
+            final_nonlinearity=ac.final_nonlinearity,
+            scale_back_function=ac.scale_back_function
+            );
+        df_motifs.banzhaf = banzhafs;    
+    end
+
     return df_motifs, m_syms, d_syms
 end
 

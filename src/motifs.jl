@@ -1,14 +1,20 @@
 function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filtered)
-    target_vals = contributions_df_filtered.contribution;
-    banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
-        contribs_filtered, 
-        target_vals; 
-        num_samples_per_vec = ac.num_samples_per_vec,
-        seed = ec.seed,
-        final_nonlinearity = ac.final_nonlinearity,
-        scale_back_function = ac.scale_back_function,
-    ) # setup for non-linearity later
-    contributions_df_filtered.banzhaf = banzhafs;
+
+    if is_identity(ac.final_nonlinearity)
+        banzhafs = contributions_df_filtered.contribution;
+        contributions_df_filtered.banzhaf = banzhafs;
+    else
+        target_vals = contributions_df_filtered.contribution;
+        banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
+            contribs_filtered, 
+            target_vals; 
+            num_samples_per_vec = ac.num_samples_per_vec,
+            seed = ec.seed,
+            final_nonlinearity = ac.final_nonlinearity,
+            scale_back_function = ac.scale_back_function,
+        ) # setup for non-linearity later
+        contributions_df_filtered.banzhaf = banzhafs;
+    end
     # report stats
     println("Banzhaf stats:")
     println("Max: ", maximum(banzhafs))
