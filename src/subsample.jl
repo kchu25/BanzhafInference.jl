@@ -18,8 +18,9 @@ function subsample_contributions(contributions_df; max_rows_per_group=10, verbos
         if n <= max_rows_per_group
             append!(sampled_indices, parent_indices)
         else
-            # Most efficient: randperm only generates what we need
-            append!(sampled_indices, @view parent_indices[randperm(n)[1:max_rows_per_group]])
+            # Sample without replacement — avoids allocating full permutation
+            selected = sample(1:n, max_rows_per_group; replace=false)
+            append!(sampled_indices, @view parent_indices[selected])
         end
     end
 
