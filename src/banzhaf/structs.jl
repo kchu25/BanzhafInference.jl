@@ -8,6 +8,7 @@ Base.@kwdef struct MotifEnumerationConfig
     mutagenesis::Bool = false # may not need
     subsample_rows::Int = 10
     num_contrib_samples::Int = 20
+    cache_folder_path::String = "./cache"
 end
 
 Base.@kwdef struct BanzhafAlgorithmConfig
