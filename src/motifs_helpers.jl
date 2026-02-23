@@ -159,7 +159,7 @@ function obtain_multi_motifs_and_banzhafs(
     )
 
     dfs = DataFrame[];
-    df_significants = DataFrame[]
+    # df_significants = DataFrame[]
     for motif_size in motif_sizes
         # Compute motifs and Banzhaf indices
         df_motifs, m_syms, d_syms = compute_motif_banzhafs(
@@ -181,7 +181,7 @@ function obtain_multi_motifs_and_banzhafs(
                     top_and_bot_counts=top_and_bot_counts);
         
         push!(dfs, df_motifs_filtered)
-        push!(df_significants, df_significant)
+        # push!(df_significants, df_significant)
     end
-    return dfs, df_significants
+    return dfs
 end

@@ -41,7 +41,7 @@ function single_motifs_and_significance_filtering!(
     contributions_df_filtered_singletons = 
         apply_final_filters!(contributions_df_filtered, df_significant, columns_of_interest;
             mutegenesis=mutegenesis, top_and_bot_counts=top_and_bot_counts); 
-    return df_significant, contributions_df_filtered_singletons
+    return contributions_df_filtered_singletons
 end
 
 
