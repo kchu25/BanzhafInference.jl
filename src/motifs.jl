@@ -1,9 +1,16 @@
 function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filtered)
 
-    # if is_identity(ac.final_nonlinearity)
-    #     banzhafs = contributions_df_filtered.contribution;
-    #     contributions_df_filtered.banzhaf = banzhafs;
-    # else
+    if is_identity(ac.final_nonlinearity)
+        if ac.normalization_method == :identity
+            banzhafs = contributions_df_filtered.contribution;
+            contributions_df_filtered.banzhaf = banzhafs;
+        elseif ac.normalization_method == :zscore
+            target_vals = contributions_df_filtered.contribution;
+            sigma = ac.scale_back_function.functor.std
+            banzhafs = target_vals .* sigma
+            contributions_df_filtered.banzhaf = banzhafs;
+        end
+    else
         target_vals = contributions_df_filtered.contribution;
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
             contribs_filtered, 
@@ -14,7 +21,7 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
             scale_back_function = ac.scale_back_function,
         ) # setup for non-linearity later
         contributions_df_filtered.banzhaf = banzhafs;
-    # end
+    end
     # report stats
     println("Banzhaf stats:")
     println("Max: ", maximum(banzhafs))

@@ -15,6 +15,7 @@ Base.@kwdef struct BanzhafAlgorithmConfig
     num_samples_per_vec::Int = 100
     final_nonlinearity = FunctorWrapper(x->x)
     scale_back_function = FunctorWrapper(x->x)
+    normalization_method::Union{Symbol, Nothing} = nothing
 end
 
 """

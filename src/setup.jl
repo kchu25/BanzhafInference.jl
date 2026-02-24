@@ -37,7 +37,8 @@ function banzhaf_setups(
     scale_back=false,
     predict_position=nothing,
     multi_output=false,
-    cache_folder_parent="./"
+    cache_folder_parent="./",
+    normalization_method=nothing
 )
     # Adjust n_coalitions_per_datapoint to keep total random coalitions ≤ 10000
     num_data_pts = maximum(contributions_df.data_pt_index)
@@ -61,7 +62,8 @@ function banzhaf_setups(
         
     ac = BanzhafInference.BanzhafAlgorithmConfig(
         final_nonlinearity=final_nonlinearity,
-        scale_back_function=scale_back_function
+        scale_back_function=scale_back_function,
+        normalization_method=normalization_method
     )
 
     # Setup MotifDataCache

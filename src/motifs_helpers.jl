@@ -2,7 +2,8 @@
 function obtain_contribs_filtered_and_configs(
     data, m, processor, train_stats; 
     scale_back=false, activation_thresh=0.8, predict_position=1, 
-    cache_folder_parent="./")
+    cache_folder_parent="./", normalization_method=nothing
+    )
  # obtain the configurations for each data point
     contributions_df = BanzhafInference.obtain_contributions_df(
         data, m, processor, train_stats; predict_position=predict_position);
@@ -13,7 +14,8 @@ function obtain_contribs_filtered_and_configs(
     ec, ac, mdc, bc = BanzhafInference.banzhaf_setups(
         m, contributions_df; train_stats=train_stats, scale_back=scale_back, 
             predict_position=predict_position, multi_output=multi_output,
-            cache_folder_parent=cache_folder_parent);
+            cache_folder_parent=cache_folder_parent, 
+            normalization_method=normalization_method);
 
     # ensure that each data point has at least a coalition of size N_ROWS_THRESHOLD (2 by default)
     contribs, contributions_df = 
@@ -42,9 +44,17 @@ function compute_motif_banzhafs(
         ec, seed, m_syms, d_syms, contributions_df_filtered; 
         motif_size=motif_size);
     
-    # if is_identity(ac.final_nonlinearity)
-    #     df_motifs.banzhaf = df_motifs.contribution;
-    # else
+    if is_identity(ac.final_nonlinearity)
+        if ac.normalization_method == :identity
+            banzhafs = df_motifs.contribution;
+            df_motifs.banzhaf = banzhafs;
+        elseif ac.normalization_method == :zscore
+            target_vals = df_motifs.contribution;
+            sigma = ac.scale_back_function.functor.std
+            banzhafs = target_vals .* sigma
+            df_motifs.banzhaf = banzhafs;
+        end
+    else
         @time views = BanzhafInference.obtain_contribution_views_all(
         df_motifs, mdc; motif_size=motif_size);
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
@@ -55,7 +65,7 @@ function compute_motif_banzhafs(
             scale_back_function=ac.scale_back_function
             );
         df_motifs.banzhaf = banzhafs;    
-    # end
+    end
 
     return df_motifs, m_syms, d_syms
 end
