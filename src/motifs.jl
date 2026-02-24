@@ -1,9 +1,9 @@
 function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filtered)
 
-    if is_identity(ac.final_nonlinearity)
-        banzhafs = contributions_df_filtered.contribution;
-        contributions_df_filtered.banzhaf = banzhafs;
-    else
+    # if is_identity(ac.final_nonlinearity)
+    #     banzhafs = contributions_df_filtered.contribution;
+    #     contributions_df_filtered.banzhaf = banzhafs;
+    # else
         target_vals = contributions_df_filtered.contribution;
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
             contribs_filtered, 
@@ -14,7 +14,7 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
             scale_back_function = ac.scale_back_function,
         ) # setup for non-linearity later
         contributions_df_filtered.banzhaf = banzhafs;
-    end
+    # end
     # report stats
     println("Banzhaf stats:")
     println("Max: ", maximum(banzhafs))
@@ -54,14 +54,29 @@ function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
     return df_motifs
 end
 
+# Read Arrow file → dedup → atomically replace original via a temp file
+function flush_dedup!(path, dedup_cols)
+    df = DataFrame(Arrow.Table(path); copycols=true)
+    n_pre = nrow(df)
+    unique!(df, dedup_cols)
+    tmp = path * ".tmp"
+    Arrow.write(tmp, df)
+    mv(tmp, path; force=true)   # atomic rename replaces old file
+    @info "  → On-disk dedup: $n_pre rows → $(nrow(df)) rows"
+end
 
-function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, dedup_every=5)
+function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, dedup_every=3)
 
     dedup_cols = Not(:contribution)
-    df_motifs = DataFrame()
     n_before = 0
 
+    !isdir(ec.cache_folder_path) && mkpath(ec.cache_folder_path)    
+    cached_output_file = joinpath(ec.cache_folder_path, "motifs_size_$(motif_size).arrow")
+    chunk_id = 0
+
     # Collect motifs with periodic deduplication to bound memory
+    writer = open(Arrow.Writer, cached_output_file)
+
     for offset = 0:(ec.num_contrib_samples-1)
         @info "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
         contributions_df_sampled = BanzhafInference.subsample_contributions(
@@ -70,17 +85,55 @@ function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered
         ad = BanzhafInference.load_activation_dict(contributions_df_sampled)
         df = extract_motifs_from_sample(ad, ec, motif_size, m_syms)
         n_before += nrow(df)
-        append!(df_motifs, df)
-        
-        # Periodically deduplicate to keep memory bounded
-        if (offset + 1) % dedup_every == 0 || offset == ec.num_contrib_samples - 1
-            unique!(df_motifs, dedup_cols)
-            GC.gc()  # force garbage collection to reclaim memory
+        Arrow.write(writer, df)
+
+        is_dedup_step = (offset + 1) % dedup_every == 0
+        if is_dedup_step
+            close(writer)
+            flush_dedup!(cached_output_file, dedup_cols)
+            # rename deduped file as a chunk
+            chunk_file = joinpath(ec.cache_folder_path, "motifs_size_$(motif_size)_chunk_$(chunk_id).arrow")
+            mv(cached_output_file, chunk_file; force=true)
+            chunk_id += 1
+            # start a fresh writer for the next batch of new rows
+            writer = open(Arrow.Writer, cached_output_file)
         end
     end
+    close(writer)
 
-    # Final dedup (mostly already unique from periodic dedup)
-    unique!(df_motifs, dedup_cols)
+    # Final chunk (remaining rows after last dedup step)
+    if isfile(cached_output_file) && filesize(cached_output_file) > 0
+        flush_dedup!(cached_output_file, dedup_cols)
+        chunk_file = joinpath(ec.cache_folder_path, "motifs_size_$(motif_size)_chunk_$(chunk_id).arrow")
+        mv(cached_output_file, chunk_file; force=true)
+        chunk_id += 1
+    end
+
+    # Pairwise merge chunks with cross-chunk dedup (max 2 chunks in memory at a time)
+    chunk_files = [joinpath(ec.cache_folder_path, "motifs_size_$(motif_size)_chunk_$(i).arrow") 
+                   for i in 0:(chunk_id-1) if isfile(joinpath(ec.cache_folder_path, "motifs_size_$(motif_size)_chunk_$(i).arrow"))]
+    
+    total_chunks = length(chunk_files)
+    merge_step = 0
+    while length(chunk_files) > 1
+        a, b = popfirst!(chunk_files), popfirst!(chunk_files)
+        merge_step += 1
+        @info "Merging chunks ($merge_step / $(total_chunks - 1)): $(basename(a)) + $(basename(b)) → $(length(chunk_files) + 1) chunks remaining"
+        merged = vcat(DataFrame(Arrow.Table(a); copycols=true), DataFrame(Arrow.Table(b); copycols=true))
+        unique!(merged, dedup_cols)
+        @info "  → Merged: $(nrow(merged)) unique rows"
+        merged_file = joinpath(ec.cache_folder_path, "motifs_merged_$(length(chunk_files)).arrow")
+        Arrow.write(merged_file, merged)
+        rm(a; force=true); rm(b; force=true)
+        push!(chunk_files, merged_file)
+        GC.gc()
+    end
+
+    df_motifs = DataFrame(Arrow.Table(chunk_files[1]); copycols=true)
+    rm(chunk_files[1]; force=true)
+
+    # Restore column types after Arrow round-trip (Arrow may widen Int32 → Int64)
+    BanzhafInference.convert_all_except!(df_motifs, BanzhafInference.IntType, :contribution)
 
     n_after = nrow(df_motifs)
     @info "Extracted $n_before motifs before deduplication."

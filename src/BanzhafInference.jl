@@ -6,6 +6,7 @@ using StatsBase, Random
 using EpicHyperSketch
 using GLM, HypothesisTests, MultipleTesting, Printf
 using SpecialFunctions
+using Arrow
 
 const FloatType = Float32
 const IntType = Int32

@@ -42,9 +42,9 @@ function compute_motif_banzhafs(
         ec, seed, m_syms, d_syms, contributions_df_filtered; 
         motif_size=motif_size);
     
-    if is_identity(ac.final_nonlinearity)
-        df_motifs.banzhaf = df_motifs.contribution;
-    else
+    # if is_identity(ac.final_nonlinearity)
+    #     df_motifs.banzhaf = df_motifs.contribution;
+    # else
         @time views = BanzhafInference.obtain_contribution_views_all(
         df_motifs, mdc; motif_size=motif_size);
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
@@ -55,7 +55,7 @@ function compute_motif_banzhafs(
             scale_back_function=ac.scale_back_function
             );
         df_motifs.banzhaf = banzhafs;    
-    end
+    # end
 
     return df_motifs, m_syms, d_syms
 end
@@ -168,6 +168,13 @@ function obtain_multi_motifs_and_banzhafs(
         # Determine columns for filtering
         mp_syms = BanzhafInference.m_position_symbols(motif_size);
         columns_of_interest = mutegenesis ? [m_syms..., d_syms..., mp_syms...] : m_syms;
+        
+        # Debug: check data before significance testing
+        @info "motif_size=$motif_size: nrow=$(nrow(df_motifs)), ncol=$(ncol(df_motifs)), columns=$(names(df_motifs))"
+        @info "  Banzhaf: min=$(minimum(df_motifs.banzhaf)) max=$(maximum(df_motifs.banzhaf)) mean=$(mean(df_motifs.banzhaf)) eltype=$(eltype(df_motifs.banzhaf))"
+        @info "  Contribution: min=$(minimum(df_motifs.contribution)) max=$(maximum(df_motifs.contribution)) mean=$(mean(df_motifs.contribution)) eltype=$(eltype(df_motifs.contribution))"
+        @info "  columns_of_interest=$columns_of_interest eltypes=$([eltype(df_motifs[!, c]) for c in columns_of_interest])"
+        @info "  Q_THRESHOLD=$Q_THRESHOLD, COUNT_THRESHOLD=$COUNT_THRESHOLD"
         
         # Filter by significance
         df_significant = filter_and_test_significance(
