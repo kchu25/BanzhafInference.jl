@@ -6,8 +6,8 @@ Base.@kwdef struct MotifEnumerationConfig
     sort_by::Symbol = :median_contribution
     seed::Union{Nothing, Int} = nothing
     mutagenesis::Bool = false # may not need
-    subsample_rows::Int = 10
-    num_contrib_samples::Int = 20
+    subsample_rows::Int = 5
+    num_contrib_samples::Int = 90
     cache_folder_path::String = "./cache"
 end
 
