@@ -9,6 +9,17 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
             sigma = ac.scale_back_function.functor.std
             banzhafs = target_vals .* sigma
             contributions_df_filtered.banzhaf = banzhafs;
+        else
+            target_vals = contributions_df_filtered.contribution;
+            banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
+                contribs_filtered, 
+                target_vals; 
+                num_samples_per_vec = ac.num_samples_per_vec,
+                seed = ec.seed,
+                final_nonlinearity = ac.final_nonlinearity,
+                scale_back_function = ac.scale_back_function,
+            ) # setup for non-linearity later
+            contributions_df_filtered.banzhaf = banzhafs;
         end
     else
         target_vals = contributions_df_filtered.contribution;
@@ -23,10 +34,14 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
         contributions_df_filtered.banzhaf = banzhafs;
     end
     # report stats
-    println("Banzhaf stats:")
-    println("Max: ", maximum(banzhafs))
-    println("Min: ", minimum(banzhafs))
-    println("Mean: ", mean(banzhafs))    
+    try
+        println("Banzhaf stats:")
+        println("Max: ", maximum(banzhafs))
+        println("Min: ", minimum(banzhafs))
+        println("Mean: ", mean(banzhafs))
+    catch e
+        @warn "Failed to print banzhaf stats: $(e)"
+    end
 end
 
 function single_motifs_and_significance_filtering!(
