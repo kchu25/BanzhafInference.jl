@@ -44,28 +44,23 @@ function compute_motif_banzhafs(
         ec, seed, m_syms, d_syms, contributions_df_filtered; 
         motif_size=motif_size);
     
-    if is_identity(ac.final_nonlinearity)
-        if ac.normalization_method == :identity
-            banzhafs = df_motifs.contribution;
-            df_motifs.banzhaf = banzhafs;
-        elseif ac.normalization_method == :zscore
-            target_vals = df_motifs.contribution;
-            sigma = ac.scale_back_function.functor.std
-            banzhafs = target_vals .* sigma
-            df_motifs.banzhaf = banzhafs;
-        end
+    target_vals = df_motifs.contribution
+    if is_identity(ac.final_nonlinearity) && ac.normalization_method == :identity
+        banzhafs = target_vals
+    elseif is_identity(ac.final_nonlinearity) && ac.normalization_method == :zscore
+        banzhafs = target_vals .* ac.scale_back_function.functor.std
     else
         @time views = BanzhafInference.obtain_contribution_views_all(
-        df_motifs, mdc; motif_size=motif_size);
+            df_motifs, mdc; motif_size=motif_size)
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
-            views, df_motifs.contribution; 
+            views, target_vals; 
             num_samples_per_vec=ac.num_samples_per_vec, 
             seed=seed,
             final_nonlinearity=ac.final_nonlinearity,
             scale_back_function=ac.scale_back_function
-            );
-        df_motifs.banzhaf = banzhafs;    
+        )
     end
+    df_motifs.banzhaf = banzhafs
 
     return df_motifs, m_syms, d_syms
 end
