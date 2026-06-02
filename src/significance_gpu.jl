@@ -238,6 +238,23 @@ function z_to_pvalue(z)
 end
 
 """
+Summarize grouped motif DataFrames without significance testing.
+Returns a DataFrame with summary statistics only (no p-values or filtering).
+Useful when significance filtering is not needed.
+"""
+function summarize_motifs(grouped_motifs_dfs)
+    df_summary = DataFrames.combine(grouped_motifs_dfs, 
+        :banzhaf => mean => :mean_banzhaf,
+        :banzhaf => std => :std_banzhaf,
+        :banzhaf => median => :median_banzhaf,
+        :contribution => mean => :mean_contribution,
+        nrow => :count
+    )
+    sort!(df_summary, :mean_banzhaf, rev=true)
+    return df_summary
+end
+
+"""
 GPU-accelerated Mann-Whitney U tests for multiple groups.
 
 Parameters:
@@ -248,7 +265,13 @@ Parameters:
 Returns:
 - DataFrame with significance test results, similar to get_significant_motifs
 """
-function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thresh = Q_THRESHOLD)
+function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thresh = Q_THRESHOLD, actually_filter=true)
+    
+    # Skip GPU computation entirely if not filtering
+    if !actually_filter
+        return summarize_motifs(grouped_motifs_dfs)
+    end
+
     n_tests = length(grouped_motifs_dfs)
     
     @info "Performing GPU-accelerated significance testing for $n_tests motifs."
@@ -347,7 +370,8 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
     
     # Filter to keep only significant motifs
     n_total = nrow(df_significant)
-    filter!(row -> row.significant, df_significant)
+
+    actually_filter && filter!(row -> row.significant, df_significant)
     
     @info "Found $(nrow(df_significant)) significant configs out of $n_total total (FDR < $q_thresh)."
     sort!(df_significant, :mean_banzhaf, rev=true)

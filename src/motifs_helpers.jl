@@ -70,13 +70,15 @@ end
 """
 function filter_and_test_significance(
     df_motifs, columns_of_interest, random_coalitions; 
-    COUNT_THRESHOLD=25, Q_THRESHOLD=1e-5)
+    COUNT_THRESHOLD=25, Q_THRESHOLD=1e-5, actually_filter=false
+    )
     
     grouped_motifs_dfs = groupby(df_motifs, columns_of_interest);
     grouped_motifs_dfs = filter(g -> nrow(g) > COUNT_THRESHOLD, grouped_motifs_dfs);
     
     df_significant = BanzhafInference.get_significant_motifs_gpu(
-        grouped_motifs_dfs, random_coalitions; q_thresh=Q_THRESHOLD);
+        grouped_motifs_dfs, random_coalitions; 
+            q_thresh=Q_THRESHOLD, actually_filter=actually_filter);
     
     return df_significant
 end
@@ -160,7 +162,8 @@ end
 function obtain_multi_motifs_and_banzhafs(
     contributions_df_filtered, mdc, ec, ac, random_coalitions; 
     seed=1, motif_sizes=[2,3], mutegenesis=false, 
-    COUNT_THRESHOLD=25, Q_THRESHOLD=1e-5, top_and_bot_counts=8
+    COUNT_THRESHOLD=25, Q_THRESHOLD=1e-5, top_and_bot_counts=8,
+    actually_filter=false
     )
 
     dfs = DataFrame[];
@@ -184,7 +187,7 @@ function obtain_multi_motifs_and_banzhafs(
         # Filter by significance
         df_significant = filter_and_test_significance(
             df_motifs, columns_of_interest, random_coalitions;
-            COUNT_THRESHOLD=COUNT_THRESHOLD, Q_THRESHOLD=Q_THRESHOLD);
+            COUNT_THRESHOLD=COUNT_THRESHOLD, Q_THRESHOLD=Q_THRESHOLD, actually_filter=actually_filter);
         
         # Apply final filters
         df_motifs_filtered = apply_final_filters!(

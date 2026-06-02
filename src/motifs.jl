@@ -29,7 +29,7 @@ end
 
 function single_motifs_and_significance_filtering!(
     ac, ec, contribs_filtered, contributions_df_filtered, random_coalitions;
-    mutegenesis=false, top_and_bot_counts=8)
+    mutegenesis=false, top_and_bot_counts=8, actually_filter=false)
     single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filtered)
 
     if mutegenesis
@@ -40,8 +40,8 @@ function single_motifs_and_significance_filtering!(
     @info "columns_of_interest: $(columns_of_interest)"
 
     df_significant = filter_and_test_significance(
-            contributions_df_filtered, columns_of_interest, random_coalitions
-            );
+            contributions_df_filtered, columns_of_interest, random_coalitions;
+            actually_filter = actually_filter);
     # now keep only significant motifs in contributions_df_filtered (singletons)
     contributions_df_filtered_singletons = 
         apply_final_filters!(contributions_df_filtered, df_significant, columns_of_interest;
