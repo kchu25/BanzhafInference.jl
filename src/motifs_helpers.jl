@@ -9,7 +9,7 @@ function obtain_contribs_filtered_and_configs(
         data, m, processor, train_stats; predict_position=predict_position);
 
     # setup the global config
-    multi_output = length(data.raw_data.feature_names) > 1
+    multi_output = data.Y_dim > 1
 
     ec, ac, mdc, bc = BanzhafInference.banzhaf_setups(
         m, contributions_df; train_stats=train_stats, scale_back=scale_back, 
