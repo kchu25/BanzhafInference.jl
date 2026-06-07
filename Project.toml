@@ -1,6 +1,6 @@
 name = "BanzhafInference"
 uuid = "1dcd8bad-b4e2-4929-895b-5ffffc074544"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Shane Kuei-Hsien Chu (skchu@wustl.edu)"]
 
 [deps]

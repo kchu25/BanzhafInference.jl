@@ -242,11 +242,15 @@ Summarize grouped motif DataFrames without significance testing.
 Returns a DataFrame with summary statistics only (no p-values or filtering).
 Useful when significance filtering is not needed.
 """
+# median throws on an empty vector, which DataFrames probes during type
+# inference when the GroupedDataFrame has zero groups; mean/std return NaN.
+safe_median(x) = isempty(x) ? NaN : median(x)
+
 function summarize_motifs(grouped_motifs_dfs)
-    df_summary = DataFrames.combine(grouped_motifs_dfs, 
+    df_summary = DataFrames.combine(grouped_motifs_dfs,
         :banzhaf => mean => :mean_banzhaf,
         :banzhaf => std => :std_banzhaf,
-        :banzhaf => median => :median_banzhaf,
+        :banzhaf => safe_median => :median_banzhaf,
         :contribution => mean => :mean_contribution,
         nrow => :count
     )
