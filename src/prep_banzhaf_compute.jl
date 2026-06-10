@@ -75,14 +75,4 @@ function prepare_banzhaf_data(df::DataFrame,; n_rows_threshold=N_ROWS_THRESHOLD)
     # Return generator directly - compute_banzhaf_optimized handles batching
     # Skipping sort_by_vector_length to avoid collecting millions of vectors
     return contribution_vectors, df_filtered
-
-    """
-    # Type: Vector{SubArray{Float32, 1, ...}}
-        # Example structure:
-        contribs[1] = SubArray([0.23, 0.45, 0.12])        # Leave-one-out for feature 1 of data point 1
-        contribs[2] = SubArray([0.23, 0.12])              # Leave-one-out for feature 2 of data point 1  
-        contribs[3] = SubArray([0.45, 0.12])              # Leave-one-out for feature 3 of data point 1
-        contribs[4] = SubArray([0.67, 0.34, 0.21, 0.89])  # Leave-one-out for feature 1 of data point 2
-        # ... and so on
-    """
 end

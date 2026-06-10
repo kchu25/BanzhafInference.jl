@@ -122,7 +122,7 @@ end
 
 
 """
-    Contruct a function that checks whether a given row is in the motif set
+    Construct a function that checks whether a given row is in the motif set
 """
 function construct_is_in_motif_set(df_significant, columns_of_interest)
     motif_set = Set(Tuple(row) for row in 
