@@ -1,6 +1,6 @@
 name = "BanzhafInference"
 uuid = "1dcd8bad-b4e2-4929-895b-5ffffc074544"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Shane Kuei-Hsien Chu (skchu@wustl.edu)"]
 
 [deps]
@@ -24,7 +24,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Arrow = "2.8.1"
 CUDA = "5.9.5"
 DataFrames = "1.8.1"
-EpicHyperSketch = "0.0.5"
+EpicHyperSketch = "0.0.7"
 Flux = "0.16.7"
 GLM = "1.9.2"
 HypothesisTests = "0.11.6"
