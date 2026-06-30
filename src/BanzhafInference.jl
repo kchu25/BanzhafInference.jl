@@ -15,6 +15,7 @@ using ProgressMeter
 using Flux: gpu, cpu, gradient
 using StatsBase: mean
 
+include("logging.jl")
 include("helpers.jl")
 include("influence/influence.jl")
 # include("thresholding/thresholding.jl")
@@ -37,6 +38,7 @@ include("significance_gpu.jl")
 export compute_and_filter_contributions
 export compute_random_coalition_banzhafs_per_datapoint
 export compute_random_coalition_banzhafs_all_datapoints
+export set_verbosity!, get_verbosity
 
 
 

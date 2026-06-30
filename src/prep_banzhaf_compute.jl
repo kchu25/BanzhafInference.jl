@@ -4,14 +4,14 @@ Because power index is based on the influence across different coalition (set) o
 we exclude the player set that has too few (n=1) players.
 """
 function filtering_data_pts(thresholded_contributions_df::DataFrame; n_rows_threshold=1)
-    @info "The dataframe has $(nrow(thresholded_contributions_df)) rows before filtering"
+    @vinfo "The dataframe has $(nrow(thresholded_contributions_df)) rows before filtering"
     thresholded_contributions_gdf_temp = groupby(thresholded_contributions_df, :data_pt_index)
     # Keep only groups with more than 1 row
     thresholded_contributions_gdf_filtered = filter(
         g -> nrow(g) > n_rows_threshold, thresholded_contributions_gdf_temp)
     # Convert back to DataFrame
     thresholded_contributions_df = vcat(thresholded_contributions_gdf_filtered...)
-    @info "The dataframe has $(nrow(thresholded_contributions_df)) rows after filtering"
+    @vinfo "The dataframe has $(nrow(thresholded_contributions_df)) rows after filtering"
     return thresholded_contributions_df
 end
 
@@ -43,7 +43,7 @@ The batching in compute_banzhaf_optimized will handle memory efficiently.
 function sort_by_vector_length(vectors, df::DataFrame)
     # Materialize generator only if needed for sorting
     if !isa(vectors, AbstractVector)
-        @info "Collecting generator for sorting (will be processed in batches by compute_banzhaf)"
+        @vinfo "Collecting generator for sorting (will be processed in batches by compute_banzhaf)"
         vectors = collect(vectors)
     end
     lengths = length.(vectors)

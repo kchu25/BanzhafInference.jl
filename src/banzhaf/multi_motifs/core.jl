@@ -11,7 +11,7 @@ Returns: (activation_dict_positive, activation_dict_negative)
 function load_activation_dict(contributions_df::AbstractDataFrame)
     ad = Dict{EpicHyperSketch.IntType, Vector{EpicHyperSketch.ConvolutionFeature}}() # activation_dict_positive
 
-    # @info "Constructing activation dictionary..."
+    # @vinfo "Constructing activation dictionary..."
 
     data_pt_indices = contributions_df.data_pt_index
     filter_indices = contributions_df.filter_index
@@ -197,7 +197,7 @@ function extract_top_k_motifs(df_motifs, grouping_columns;
     
     # Log selection summary
     total_motifs_selected = nrow(top_motifs_combined)
-    @info "Motif selection: $(num_activating_selected) activating + $(num_suppressing_selected) suppressing = $(total_motifs_selected) total"
+    @vinfo "Motif selection: $(num_activating_selected) activating + $(num_suppressing_selected) suppressing = $(total_motifs_selected) total"
     
     # Extract motif configuration keys and retrieve all occurrences
     motif_keys_to_keep = select(top_motifs_combined, grouping_columns)

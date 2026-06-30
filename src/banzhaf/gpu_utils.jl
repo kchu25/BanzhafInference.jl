@@ -28,14 +28,14 @@ function process_in_batches(f::Function, vectors, target_vals; batch_size=nothin
     
     # For generators, process in streaming fashion
     if !isa(vectors, AbstractVector)
-        @info "Streaming generator through batches ($num_vectors vectors)"
+        @vinfo "Streaming generator through batches ($num_vectors vectors)"
         return process_generator_in_batches(f, vectors, target_vals, batch_size; kwargs...)
     end
 
     if batch_size === nothing
         # Auto-calculate batch size based on memory analysis
         batch_size = estimate_optimal_batch_size(vectors, kwargs)
-        @info "Auto-calculated batch size: $batch_size"
+        @vinfo "Auto-calculated batch size: $batch_size"
     end
     
     if batch_size >= num_vectors
@@ -67,7 +67,7 @@ function process_generator_in_batches(f::Function, gen, target_vals, batch_size;
     # Start with conservative batch size for generators
     if batch_size === nothing
         batch_size = min(2000, num_vectors)
-        @info "Using batch size $batch_size for generator processing"
+        @vinfo "Using batch size $batch_size for generator processing"
     end
     
     results = Vector{Float32}(undef, num_vectors)
@@ -222,7 +222,7 @@ function estimate_optimal_batch_size(vectors, kwargs)
         # 1000
     ))
     
-    @info "Memory analysis" free_mb=round(free_mem/1e6, digits=2) usable_mb=round(usable_memory/1e6, digits=2) target_mb_per_vec=round(target_memory/1e6, digits=4) estimated_batch_size=batch_size
+    @vinfo "Memory analysis" free_mb=round(free_mem/1e6, digits=2) usable_mb=round(usable_memory/1e6, digits=2) target_mb_per_vec=round(target_memory/1e6, digits=4) estimated_batch_size=batch_size
     
     return batch_size
 end

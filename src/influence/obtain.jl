@@ -62,7 +62,7 @@ function compute_contributions(
     operate_on_gpu=true,
     threshold_stats=nothing
 )
-    @info "Obtaining contributions ..."
+    @vinfo "Obtaining contributions ..."
     @assert !data_load.shuffle "dataload must have shuffle = false"
     @assert isa(model.hp.batch_size, Integer) "model must have property `batchsize`"
     @assert model.hp.batch_size == data_load.batchsize "model.batchsize must equal data_load.batchsize"
@@ -108,11 +108,11 @@ function compute_and_filter_contributions(data, m, processor;
     
     contributions = compute_contributions(m, data_load_complete; 
         pseudo_model=processor, predict_position=predict_position,);
-    @info "Total contributions obtained: $(length(contributions))"
+    @vinfo "Total contributions obtained: $(length(contributions))"
     !isnothing(threshold_stats) && begin
         filter!(x->abs(x.contribution) ≥ threshold_stats.threshold, contributions);
     end
-    @info "Contributions after filtering: $(length(contributions))"
+    @vinfo "Contributions after filtering: $(length(contributions))"
     BanzhafInference.sanity_check(m, contributions, data_load_complete; 
         predict_position=predict_position, operate_on_gpu=operate_on_gpu,
         train_stats=train_stats

@@ -17,13 +17,15 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
     contributions_df_filtered.banzhaf = banzhafs
     
     # report stats
-    try
-        println("Banzhaf stats:")
-        println("Max: ", maximum(banzhafs))
-        println("Min: ", minimum(banzhafs))
-        println("Mean: ", mean(banzhafs))
-    catch e
-        @warn "Failed to print banzhaf stats: $(e)"
+    if _should_log(:verbose)
+        try
+            println("Banzhaf stats:")
+            println("Max: ", maximum(banzhafs))
+            println("Min: ", minimum(banzhafs))
+            println("Mean: ", mean(banzhafs))
+        catch e
+            @warn "Failed to print banzhaf stats: $(e)"
+        end
     end
 end
 
@@ -37,7 +39,7 @@ function single_motifs_and_significance_filtering!(
     else
         columns_of_interest = [:filter_index]
     end
-    @info "columns_of_interest: $(columns_of_interest)"
+    @vinfo "columns_of_interest: $(columns_of_interest)"
 
     df_significant = filter_and_test_significance(
             contributions_df_filtered, columns_of_interest, random_coalitions;
@@ -67,7 +69,7 @@ function flush_dedup!(path, dedup_cols)
     tmp = path * ".tmp"
     Arrow.write(tmp, df)
     mv(tmp, path; force=true)   # atomic rename replaces old file
-    @info "  → On-disk dedup: $n_pre rows → $(nrow(df)) rows"
+    @vinfo "  → On-disk dedup: $n_pre rows → $(nrow(df)) rows"
 end
 
 function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered; motif_size=2, dedup_every=3)
@@ -83,7 +85,7 @@ function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered
     writer = open(Arrow.Writer, cached_output_file)
 
     for offset = 0:(ec.num_contrib_samples-1)
-        @info "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
+        @vinfo "Obtaining motifs from contribution sample $(offset + 1) / $(ec.num_contrib_samples)..."
         contributions_df_sampled = BanzhafInference.subsample_contributions(
             contributions_df_filtered; max_rows_per_group=ec.subsample_rows, 
             verbose=false, seed=seed+offset)
@@ -123,10 +125,10 @@ function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered
     while length(chunk_files) > 1
         a, b = popfirst!(chunk_files), popfirst!(chunk_files)
         merge_step += 1
-        @info "Merging chunks ($merge_step / $(total_chunks - 1)): $(basename(a)) + $(basename(b)) → $(length(chunk_files) + 1) chunks remaining"
+        @vinfo "Merging chunks ($merge_step / $(total_chunks - 1)): $(basename(a)) + $(basename(b)) → $(length(chunk_files) + 1) chunks remaining"
         merged = vcat(DataFrame(Arrow.Table(a); copycols=true), DataFrame(Arrow.Table(b); copycols=true))
         unique!(merged, dedup_cols)
-        @info "  → Merged: $(nrow(merged)) unique rows"
+        @vinfo "  → Merged: $(nrow(merged)) unique rows"
         merged_file = joinpath(ec.cache_folder_path, "motifs_merged_$(length(chunk_files)).arrow")
         Arrow.write(merged_file, merged)
         rm(a; force=true); rm(b; force=true)
@@ -141,9 +143,9 @@ function obtain_multi_motifs(ec, seed, m_syms, d_syms, contributions_df_filtered
     BanzhafInference.convert_all_except!(df_motifs, BanzhafInference.IntType, :contribution)
 
     n_after = nrow(df_motifs)
-    @info "Extracted $n_before motifs before deduplication."
-    @info "Retained $n_after unique motifs after deduplication."
-    @info "The unique motifs is $(round(n_after / n_before * 100, digits=2))% of the original."
+    @vinfo "Extracted $n_before motifs before deduplication."
+    @vinfo "Retained $n_after unique motifs after deduplication."
+    @vinfo "The unique motifs is $(round(n_after / n_before * 100, digits=2))% of the original."
 
     BanzhafInference.add_motif_positions_columns!(df_motifs, m_syms, d_syms, ec.filter_len)
     return df_motifs

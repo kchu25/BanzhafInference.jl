@@ -278,7 +278,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
 
     n_tests = length(grouped_motifs_dfs)
     
-    @info "Performing GPU-accelerated significance testing for $n_tests motifs."
+    @vinfo "Performing GPU-accelerated significance testing for $n_tests motifs."
     
     # Prepare data structures
     random_banzhaf = Float32.(random_coalitions.banzhaf)
@@ -318,7 +318,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
         n_blocks = n_tests
         shared_mem_size = threads_per_block * sizeof(Float64)  # Use Float64 for accuracy
         
-        @info "Launching optimized GPU kernel with $n_blocks blocks of $threads_per_block threads (shared memory version)."
+        @vinfo "Launching optimized GPU kernel with $n_blocks blocks of $threads_per_block threads (shared memory version)."
         @cuda threads=threads_per_block blocks=n_blocks shmem=shared_mem_size compute_u_statistics_shared_mem!(
             d_group_starts, d_group_data, d_group_sizes, 
             d_random_data, n_random, d_u_stats, n_tests
@@ -328,7 +328,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
         threads_per_block = 256
         n_blocks = ceil(Int, n_tests / threads_per_block)
         
-        @info "Launching simple GPU kernel with $n_blocks blocks of $threads_per_block threads (batched version)."
+        @vinfo "Launching simple GPU kernel with $n_blocks blocks of $threads_per_block threads (batched version)."
         @cuda threads=threads_per_block blocks=n_blocks compute_u_statistics_batched_kernel!(
             d_group_starts, d_group_data, d_group_sizes, 
             d_random_data, n_random, d_u_stats, n_tests
@@ -337,7 +337,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
     
     CUDA.synchronize()
     
-    @info "GPU computation complete. Transferring results back to CPU."
+    @vinfo "GPU computation complete. Transferring results back to CPU."
 
     # Transfer results back to CPU
     u_stats = Array(d_u_stats)
@@ -377,7 +377,7 @@ function get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thr
 
     actually_filter && filter!(row -> row.significant, df_significant)
     
-    @info "Found $(nrow(df_significant)) significant configs out of $n_total total (FDR < $q_thresh)."
+    @vinfo "Found $(nrow(df_significant)) significant configs out of $n_total total (FDR < $q_thresh)."
     sort!(df_significant, :mean_banzhaf, rev=true)
     
     return df_significant
@@ -388,7 +388,7 @@ Fallback version that validates GPU results match CPU implementation.
 Useful for testing/debugging.
 """
 function validate_gpu_vs_cpu(grouped_motifs_dfs, random_coalitions; q_thresh = Q_THRESHOLD)
-    @info "Running both CPU and GPU versions for validation..."
+    @vinfo "Running both CPU and GPU versions for validation..."
     
     # CPU version
     cpu_results = get_significant_motifs(grouped_motifs_dfs, random_coalitions; q_thresh=q_thresh)
@@ -396,13 +396,13 @@ function validate_gpu_vs_cpu(grouped_motifs_dfs, random_coalitions; q_thresh = Q
     # GPU version
     gpu_results = get_significant_motifs_gpu(grouped_motifs_dfs, random_coalitions; q_thresh=q_thresh)
     
-    @info "CPU found $(nrow(cpu_results)) significant motifs"
-    @info "GPU found $(nrow(gpu_results)) significant motifs"
+    @vinfo "CPU found $(nrow(cpu_results)) significant motifs"
+    @vinfo "GPU found $(nrow(gpu_results)) significant motifs"
     
     # Compare p-values
     if nrow(cpu_results) > 0 && nrow(gpu_results) > 0
         max_pvalue_diff = maximum(abs.(cpu_results.pvalue .- gpu_results.pvalue))
-        @info "Maximum p-value difference: $max_pvalue_diff"
+        @vinfo "Maximum p-value difference: $max_pvalue_diff"
     end
     
     return cpu_results, gpu_results

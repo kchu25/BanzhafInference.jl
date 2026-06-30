@@ -50,7 +50,7 @@ function compute_motif_banzhafs(
     elseif is_identity(ac.final_nonlinearity) && ac.normalization_method == :zscore
         banzhafs = target_vals .* ac.scale_back_function.functor.std
     else
-        @time views = BanzhafInference.obtain_contribution_views_all(
+        @vtime views = BanzhafInference.obtain_contribution_views_all(
             df_motifs, mdc; motif_size=motif_size)
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(
             views, target_vals; 
@@ -140,6 +140,7 @@ function apply_final_filters!(
     )
     
     if mutegenesis
+        df_significant = get_top_bottom(df_significant, :median_banzhaf; merged=true, n=top_and_bot_counts);
         is_in_motif_set = construct_is_in_motif_set(df_significant, columns_of_interest);
         df_motifs_filtered = filter(row -> is_in_motif_set(row), df_motifs)
         return df_motifs_filtered
@@ -178,11 +179,11 @@ function obtain_multi_motifs_and_banzhafs(
         columns_of_interest = mutegenesis ? [m_syms..., d_syms..., mp_syms...] : m_syms;
         
         # Debug: check data before significance testing
-        @info "motif_size=$motif_size: nrow=$(nrow(df_motifs)), ncol=$(ncol(df_motifs)), columns=$(names(df_motifs))"
-        @info "  Banzhaf: min=$(minimum(df_motifs.banzhaf)) max=$(maximum(df_motifs.banzhaf)) mean=$(mean(df_motifs.banzhaf)) eltype=$(eltype(df_motifs.banzhaf))"
-        @info "  Contribution: min=$(minimum(df_motifs.contribution)) max=$(maximum(df_motifs.contribution)) mean=$(mean(df_motifs.contribution)) eltype=$(eltype(df_motifs.contribution))"
-        @info "  columns_of_interest=$columns_of_interest eltypes=$([eltype(df_motifs[!, c]) for c in columns_of_interest])"
-        @info "  Q_THRESHOLD=$Q_THRESHOLD, COUNT_THRESHOLD=$COUNT_THRESHOLD"
+        @vinfo "motif_size=$motif_size: nrow=$(nrow(df_motifs)), ncol=$(ncol(df_motifs)), columns=$(names(df_motifs))"
+        @vinfo "  Banzhaf: min=$(minimum(df_motifs.banzhaf)) max=$(maximum(df_motifs.banzhaf)) mean=$(mean(df_motifs.banzhaf)) eltype=$(eltype(df_motifs.banzhaf))"
+        @vinfo "  Contribution: min=$(minimum(df_motifs.contribution)) max=$(maximum(df_motifs.contribution)) mean=$(mean(df_motifs.contribution)) eltype=$(eltype(df_motifs.contribution))"
+        @vinfo "  columns_of_interest=$columns_of_interest eltypes=$([eltype(df_motifs[!, c]) for c in columns_of_interest])"
+        @vinfo "  Q_THRESHOLD=$Q_THRESHOLD, COUNT_THRESHOLD=$COUNT_THRESHOLD"
         
         # Filter by significance
         df_significant = filter_and_test_significance(

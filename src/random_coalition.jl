@@ -230,7 +230,7 @@ function compute_random_coalition_banzhafs_all_datapoints(
     # Limit data points if requested
     n_groups = isnothing(max_datapoints) ? length(gdf) : min(max_datapoints, length(gdf))
     
-    verbose && @info "Processing $n_groups data points..."
+    verbose && @vinfo "Processing $n_groups data points..."
     
     all_results = DataFrame[]
     
@@ -275,12 +275,12 @@ function compute_random_coalition_banzhafs_all_datapoints(
         combined_results = combined_results[sample(1:nrow(combined_results), MAX_BG_DATA_PTs; replace=false), :]
     end
     
-    @info "Info about combined_results.banzhaf:"
-    @info "Maximum: $(maximum(combined_results.banzhaf))"
-    @info "Minimum: $(minimum(combined_results.banzhaf))"
-    @info "Mean: $(mean(combined_results.banzhaf))"
+    @vinfo "Info about combined_results.banzhaf:"
+    @vinfo "Maximum: $(maximum(combined_results.banzhaf))"
+    @vinfo "Minimum: $(minimum(combined_results.banzhaf))"
+    @vinfo "Mean: $(mean(combined_results.banzhaf))"
     
-    verbose && @info "Generated $(nrow(combined_results)) coalitions across $n_groups data points"
+    verbose && @vinfo "Generated $(nrow(combined_results)) coalitions across $n_groups data points"
 
     return combined_results
 end

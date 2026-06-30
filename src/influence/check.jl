@@ -25,7 +25,7 @@ function obtain_predictions(model, contributions, data_load;
     model_predictions = zeros(FloatType, (N,))
     
     # Compute predictions from contributions
-    @info "Obtaining predictions from contributions ..."
+    @vinfo "Obtaining predictions from contributions ..."
     @showprogress for c in contributions
         contribs2predictions[c.data_pt_index] += c.contribution
     end
@@ -40,7 +40,7 @@ function obtain_predictions(model, contributions, data_load;
     @assert data_load.shuffle == false "dataload must have shuffle = false"
     @assert model.hp.batch_size == data_load.batchsize "model.batchsize must equal data_load.batchsize"
     data_pt_offset = 0
-    @info "Obtaining predictions from model ..."
+    @vinfo "Obtaining predictions from model ..."
     @showprogress for (X, _) in data_load
         X = operate_on_gpu ? X |> gpu : X |> cpu
         predictions = model(X; predict_position=predict_position)
@@ -75,7 +75,7 @@ Validate that predictions from contributions match model predictions.
 """
 function validate_predictions(model_predictions, contribs2predictions)
     r2 = _compute_r2(model_predictions, contribs2predictions)
-    @info "R² (contributions vs. model): $(round(r2, digits=3))"
+    @vinfo "R² (contributions vs. model): $(round(r2, digits=3))"
 end
 
 """
@@ -115,9 +115,9 @@ function sanity_check(model, contributions, data_load;
 
         r2_orig = BanzhafInference.r2_score(labels, model_predictions)
         r2 = BanzhafInference.r2_score(labels, contribs2predictions)
-        @info "R² with true labels vs model predictions: $(round(r2_orig, digits=3))"
-        @info "R² with true labels vs contributions predictions: $(round(r2, digits=3))"
-        @info "Improvement over model R²: $(round(r2 - r2_orig, digits=3)*100)%"
+        @vinfo "R² with true labels vs model predictions: $(round(r2_orig, digits=3))"
+        @vinfo "R² with true labels vs contributions predictions: $(round(r2, digits=3))"
+        @vinfo "Improvement over model R²: $(round(r2 - r2_orig, digits=3)*100)%"
     else
         @warn "train_stats not provided; skipping R² with true labels."
     end

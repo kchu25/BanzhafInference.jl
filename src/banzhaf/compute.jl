@@ -90,7 +90,7 @@ function compute_subset_sums_optimized(vectors, num_samples_per_vec::Int; seed=n
     padded_vecs, lengths = prepare_padded_vectors_optimized(vectors)
     
     # Generate masks
-    # @info "Generating masks..."
+    # @vinfo "Generating masks..."
     d_masks, d_vec_ids, masks_needed = generate_masks_optimized(lengths, num_samples_per_vec; seed=seed)
     
     return safe_gpu_alloc(d_masks, d_vec_ids) do masks, vec_ids
@@ -100,7 +100,7 @@ function compute_subset_sums_optimized(vectors, num_samples_per_vec::Int; seed=n
         d_sums = CUDA.zeros(Float32, length(masks))
         
         # Launch subset sum kernel
-        # @info "Computing subset sums..."
+        # @vinfo "Computing subset sums..."
         launch_kernel_safe(subset_sum_kernel!, d_sums, d_vecs, masks, vec_ids, d_lengths,
                           name="subset_sum")
         
@@ -158,19 +158,19 @@ function compute_banzhaf_optimized(vectors, target_vals;
     else
         # For generators, estimate size from target_vals
         num_vectors = length(target_vals)
-        println("🔄 Processing generator with $num_vectors expected vectors")
+        _should_log(:verbose) && println("🔄 Processing generator with $num_vectors expected vectors")
     end
     
     # Check if batching is needed
     if use_batching && num_vectors > BATCH_PROCESSING_THRESHOLD
-        # @info "Large dataset detected ($num_vectors vectors). Using batching..."
+        # @vinfo "Large dataset detected ($num_vectors vectors). Using batching..."
         return process_in_batches(compute_banzhaf_single_batch, vectors, target_vals;
                                 num_samples_per_vec=num_samples_per_vec, 
                                 seed=seed, 
                                 final_nonlinearity=final_nonlinearity,
                                 scale_back_function=scale_back_function)
     else
-        # @info "Processing all vectors in a single batch ($num_vectors vectors)"
+        # @vinfo "Processing all vectors in a single batch ($num_vectors vectors)"
         # For single batch, we need to materialize generators
         if !isa(vectors, AbstractVector)
             # println("📦 Materializing generator for single batch processing")

@@ -1,6 +1,6 @@
 function get_significant_motifs(grouped_motifs_dfs, random_coalitions; q_thresh = Q_THRESHOLD)
     p_values = Float64[]
-    @info "Performing significance testing for $(length(grouped_motifs_dfs)) motifs against random coalitions."
+    @vinfo "Performing significance testing for $(length(grouped_motifs_dfs)) motifs against random coalitions."
     @showprogress for group in grouped_motifs_dfs
         mtest = HypothesisTests.MannWhitneyUTest(group.banzhaf, random_coalitions.banzhaf)
         push!(p_values, pvalue(mtest))
@@ -21,7 +21,7 @@ function get_significant_motifs(grouped_motifs_dfs, random_coalitions; q_thresh 
     df_significant.significant = df_significant.qvalue .< q_thresh
     # Filter to keep only significant motifs
     filter!(row -> row.significant, df_significant)
-    @info "Found $(nrow(df_significant)) significant motifs out of $(nrow(df_significant)) total (FDR < $(q_thresh))."
+    @vinfo "Found $(nrow(df_significant)) significant motifs out of $(nrow(df_significant)) total (FDR < $(q_thresh))."
     sort!(df_significant, :mean_banzhaf, rev=true)
     return df_significant
 end

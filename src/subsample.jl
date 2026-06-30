@@ -26,7 +26,7 @@ function subsample_contributions(contributions_df; max_rows_per_group=10, verbos
 
     contributions_df_sampled = @view contributions_df[sampled_indices, :]
     
-    if verbose
+    if verbose && _should_log(:verbose)
         println("\n=== SAMPLING SANITY CHECK ===")
         println("Original size: ", nrow(contributions_df))
         println("Sampled size: ", length(sampled_indices))
