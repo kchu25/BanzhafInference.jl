@@ -50,7 +50,7 @@ function banzhaf_setups(
     # Setup enumeration config
     ec = BanzhafInference.MotifEnumerationConfig(
         max_interaction_order=max_interaction_order, 
-        filter_len=m.hp.pfm_len, 
+        filter_len=m.receptive_field,  # region width = receptive field (NOT base pfm_len), so non-overlap is enforced at the region scale
         seed=seed,
         cache_folder_path=joinpath(cache_folder_parent, "cache")
     )
