@@ -55,7 +55,7 @@ end
 function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
     df_motifs = EpicHyperSketch.obtain_enriched_configurations_partitioned(
         activation_dict; motif_size, ec.filter_len) # TODO need a seed as well
-    BanzhafInference.missing_columns_check(df_motifs, m_syms) 
+    BanzhafInference.assert_required_motif_columns(df_motifs, m_syms)
     BanzhafInference.convert_all_except!(
         df_motifs, BanzhafInference.IntType, :contribution)
     return df_motifs

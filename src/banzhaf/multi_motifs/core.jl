@@ -74,13 +74,23 @@ Get motif position symbols for a given set of motif columns.
 get_motif_position_symbols(motif_cols) = Symbol.(string.(motif_cols, "_position"))
 
 """
-Check for missing required columns in the DataFrame.
+    assert_required_motif_columns(df, motif_cols)
+
+Assert that `df` contains every required motif column in `motif_cols` plus the
+`:contribution` column, throwing an `AssertionError` if any are absent.
+
+Note: an empty result (e.g. no motifs of the requested size were found) can
+surface here as a column-less DataFrame, so a failure here often means "nothing
+was found" rather than "the data is malformed".
 """
-function missing_columns_check(df, motif_cols)
-    missing_cols = [col for col in motif_cols if !(col in propertynames(df))]
+function assert_required_motif_columns(df, motif_cols)
+    missing_cols = setdiff(motif_cols, propertynames(df))
     @assert isempty(missing_cols) "Missing required columns: $missing_cols"
     @assert :contribution in propertynames(df) "Missing :contribution column"
 end
+
+# Backward-compatible alias for the former name.
+const missing_columns_check = assert_required_motif_columns
 
 """
     convert_all_except!(df::DataFrame, target_type::Type, except_cols) -> DataFrame

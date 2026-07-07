@@ -18,7 +18,7 @@ function process_activation_dict(ctx::MotifContext, motif_size::Int,
 
     df_motifs = EpicHyperSketch.obtain_enriched_configurations_partitioned(ctx.ad; motif_size, bc_ctx.filter_len)
 
-    missing_columns_check(df_motifs, m_syms) 
+    assert_required_motif_columns(df_motifs, m_syms)
     convert_all_except!(df_motifs, eltype(ctx.data_pt_keys), :contribution)
     
     df_topk = extract_top_k_motifs(df_motifs, sep_by; 
