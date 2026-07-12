@@ -52,9 +52,48 @@ function single_motifs_and_significance_filtering!(
 end
 
 
+"""
+    empty_motif_result(m_syms, ec) -> DataFrame
+
+Canonical zero-row result for "no motifs of this size were found". Mirrors the schema
+`EpicHyperSketch.obtain_enriched_configurations_partitioned` produces for a non-empty
+result: the motif-index columns `m_syms`, and (in the convolution case, `ec.filter_len !==
+nothing`) the inter-motif distance columns plus the `:start`/`:end` span; always
+`:data_pt_index` and `:contribution`. Used so downstream code sees an empty *table with the
+right columns* rather than a bare, column-less `DataFrame`.
+"""
+function empty_motif_result(m_syms, ec)
+    IntT, FloatT = BanzhafInference.IntType, BanzhafInference.FloatType
+    cols = Pair{Symbol,Vector}[s => IntT[] for s in m_syms]
+    if ec.filter_len !== nothing            # convolution case: distances + span columns
+        for s in BanzhafInference.d_symbols(length(m_syms))
+            push!(cols, s => IntT[])
+        end
+        push!(cols, :start => IntT[])
+        push!(cols, :end => IntT[])
+    end
+    push!(cols, :data_pt_index => IntT[])
+    push!(cols, :contribution => FloatT[])
+    return DataFrame(cols)
+end
+
 function extract_motifs_from_sample(activation_dict, ec, motif_size, m_syms)
+    # A subsample can have no thresholded activations at all; EpicHyperSketch's
+    # validate_activation_dict throws `InvalidConfigurationError` on an empty dict. Short-
+    # circuit to the canonical empty result (same notion of "empty": `isempty(dict)`).
+    isempty(activation_dict) && return empty_motif_result(m_syms, ec)
     df_motifs = EpicHyperSketch.obtain_enriched_configurations_partitioned(
         activation_dict; motif_size, ec.filter_len) # TODO need a seed as well
+    # Robustness: when a subsample contains no motifs of this size, the partitioned
+    # extractor combines an empty set of partition results into a *column-less* DataFrame
+    # (EpicHyperSketch partition.jl: `isempty(dfs) ? DataFrame() : reduce(vcat, dfs)`). That
+    # would trip assert_required_motif_columns below. Normalize it into a well-formed empty
+    # result so "nothing found in this subsample" flows through as an empty table with the
+    # correct columns instead of an error. Non-empty results are left untouched, so the
+    # convolution and mutagenesis paths behave exactly as before whenever motifs are found.
+    if any(s -> !(s in propertynames(df_motifs)), m_syms) || !(:contribution in propertynames(df_motifs))
+        df_motifs = empty_motif_result(m_syms, ec)
+    end
     BanzhafInference.assert_required_motif_columns(df_motifs, m_syms)
     BanzhafInference.convert_all_except!(
         df_motifs, BanzhafInference.IntType, :contribution)

@@ -173,7 +173,20 @@ function obtain_multi_motifs_and_banzhafs(
         # Compute motifs and Banzhaf indices
         df_motifs, m_syms, d_syms = compute_motif_banzhafs(
             contributions_df_filtered, ec, ac, mdc, seed, motif_size);
-        
+
+        # If no motifs of this size survived, keep an aligned empty result and skip the
+        # per-size analysis (significance testing, Banzhaf/summary stats, final filtering) —
+        # those steps assume at least one row (e.g. `minimum(df.banzhaf)`, `groupby` on a
+        # non-empty frame). Pushing the empty (but well-formed) df keeps `dfs` index-aligned
+        # with `motif_sizes`, which downstream consumers rely on (`obtain_interaction_results`
+        # uses k = idx+1); an empty df there yields an empty summary, and the renderer skips
+        # empty sizes. This makes a missing k-motif a no-op rather than a crash.
+        if nrow(df_motifs) == 0
+            @info "obtain_multi_motifs_and_banzhafs: no motifs of size $motif_size found; keeping an empty result and omitting this size from the per-size analysis."
+            push!(dfs, df_motifs)
+            continue
+        end
+
         # Determine columns for filtering
         mp_syms = BanzhafInference.m_position_symbols(motif_size);
         columns_of_interest = mutegenesis ? [m_syms..., d_syms..., mp_syms...] : m_syms;

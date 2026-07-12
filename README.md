@@ -121,6 +121,28 @@ Defaults live in [`src/const.jl`](src/const.jl):
 | `MAX_BG_DATA_PTs` | 10000 | Maximum background coalitions for the null |
 | `MAX_BANZHAF_PER_GROUP` | 5000 | Maximum samples per motif group |
 
+## Empty motif sizes are a no-op, not an error
+
+A given motif size (pairs, triplets, …) may yield **no** motifs — e.g. a subsample has no
+above-threshold activations, or the non-overlap filter in the counter (`EpicHyperSketch`, which
+skips filter combinations whose footprints overlap, gap `< filter_len`) leaves nothing for that
+size. Two things make this robust rather than fatal:
+
+- **`extract_motifs_from_sample`** ([`src/motifs.jl`](src/motifs.jl)) short-circuits an empty
+  activation dictionary, and normalizes the counter's column-less "nothing found" return into a
+  well-formed empty table via **`empty_motif_result`** (correct `m*`/`d*`/`start`/`end`/
+  `contribution` columns, zero rows). This matches the schema `EpicHyperSketch` emits for a
+  non-empty result, so the assertion and every downstream consumer see a proper empty frame.
+- **`obtain_multi_motifs_and_banzhafs`** ([`src/motifs_helpers.jl`](src/motifs_helpers.jl)) detects
+  an empty size and pushes the aligned empty result while **omitting** that size's per-size
+  analysis (significance testing, Banzhaf/summary stats, final filtering) — those steps assume at
+  least one row. Keeping the empty frame in `dfs` preserves the index-alignment with `motif_sizes`
+  that `obtain_interaction_results` relies on (`k = idx + 1`); an empty frame there yields an empty
+  interaction summary, and the renderer skips empty sizes.
+
+Non-empty results are untouched, so the convolution and mutagenesis paths behave exactly as before
+whenever motifs are found; a missing k-motif is simply omitted from the rest of the pipeline.
+
 ## Project status
 
 This package is under active development (`v1.0.0-DEV`). As a library consumed by other packages, its exported API is the stable surface; the internal pipeline helpers may change between versions.
