@@ -3,7 +3,11 @@ function single_motifs_banzhaf!(ac, ec, contribs_filtered, contributions_df_filt
     target_vals = contributions_df_filtered.contribution
     if is_identity(ac.final_nonlinearity) && ac.normalization_method == :identity
         banzhafs = target_vals
-    elseif is_identity(ac.final_nonlinearity) && ac.normalization_method == :zscore
+    elseif is_identity(ac.final_nonlinearity) && ac.normalization_method in (:zscore, :zscore_wt)
+        # :zscore_wt shares this closed form. Banzhaf values are DIFFERENCES of
+        # contributions, so the additive offset (mean for :zscore, reference for
+        # :zscore_wt) cancels and only the shared `std` slope survives. The
+        # ZScoreWTScaleBack functor names its scale field `std` for this reason.
         banzhafs = target_vals .* ac.scale_back_function.functor.std
     else
         banzhafs = BanzhafInference.obtain_banzhafs_enhanced(

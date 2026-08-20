@@ -1,6 +1,6 @@
 name = "BanzhafInference"
 uuid = "1dcd8bad-b4e2-4929-895b-5ffffc074544"
-version = "0.0.8"
+version = "0.0.9"
 authors = ["Shane Kuei-Hsien Chu (skchu@wustl.edu)"]
 
 [deps]
@@ -32,7 +32,7 @@ MultipleTesting = "0.6.0"
 Printf = "1.11.0"
 ProgressMeter = "1.11.0"
 Random = "1.11.0"
-RealLabelNormalization = "1.0.6"
+RealLabelNormalization = "1.1.0"
 SpecialFunctions = "2.6.1"
 Statistics = "1.11.1"
 StatsBase = "0.34.9"

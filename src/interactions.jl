@@ -92,12 +92,20 @@ function test_kway_interaction(m_sym, ind, gdf_single, gdf_combo; response_col=:
 end
 
 """
-    apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=1e-10)
+    apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=0.05)
 
 Apply FDR correction to interaction p-values and return only significant results.
 Returns DataFrame with adjusted p-values, sorted by significance.
 """
-function apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=1e-10)
+function apply_fdr_correction(interaction_results; method=BenjaminiHochberg(), alpha=0.05)
+    # alpha was 1e-10 until 2026-08-20. That is ~8 orders of magnitude stricter
+    # than a conventional cutoff, and it is applied AFTER Benjamini-Hochberg has
+    # already corrected for multiple testing. On a positive control -- a
+    # simulated dataset whose planted epistasis ranked 1st of 16 in dfs[1] --
+    # the best adjusted p-value was 8.08e-9, so every interaction was discarded
+    # and obtain_interaction_results returned an empty Dict.
+    # Caveat when reading results at 0.05: n_obs per test runs 12k-19k, so a
+    # tiny p-value does not imply a large effect. Rank by β_interaction too.
     # Handle empty results
     if nrow(interaction_results) == 0
         return interaction_results
@@ -159,7 +167,7 @@ function create_summary_dicts(interaction_results, k::Int; use_adjusted_p=true)
 end
 
 """
-    obtain_interaction_results(contributions_df_filtered, dfs; alpha=1e-10)
+    obtain_interaction_results(contributions_df_filtered, dfs; alpha=0.05)
 
 Test interactions for all k-tuple sizes (k=2, 3, ..., length(dfs)+1).
 `dfs` is a vector where `dfs[i]` contains the DataFrame of (i+1)-tuples.
@@ -167,7 +175,7 @@ Test interactions for all k-tuple sizes (k=2, 3, ..., length(dfs)+1).
 Returns `(summary_strs, summary_quants)` where each is a vector indexed by 
 position in `dfs` (i.e., `summary_strs[1]` is pairs, `summary_strs[2]` is triplets, etc.).
 """
-function obtain_interaction_results(contributions_df_filtered, dfs; alpha=1e-10)
+function obtain_interaction_results(contributions_df_filtered, dfs; alpha=0.05)
     gdf_single = groupby(contributions_df_filtered, :filter_index)
     
     summary_strs = []
