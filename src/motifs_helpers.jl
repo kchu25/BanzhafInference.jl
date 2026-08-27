@@ -45,7 +45,17 @@ function compute_motif_banzhafs(
         motif_size=motif_size);
     
     target_vals = df_motifs.contribution
-    if is_identity(ac.final_nonlinearity) && ac.normalization_method == :identity
+    if isempty(target_vals)
+        # No motif of this size survived enumeration. The two closed-form branches
+        # below absorb that silently (an empty vector maps to an empty vector), but
+        # the general branch does not: `validate_inputs` asserts a non-empty vector
+        # and throws `AssertionError: Input vectors cannot be empty`. So the same
+        # zero-motif dataset rendered an empty page under :zscore and crashed under
+        # :log, purely because of which branch it took. The caller
+        # (`obtain_multi_motifs_and_banzhafs`) already treats `nrow == 0` as a
+        # well-formed empty result, so hand it one.
+        banzhafs = target_vals
+    elseif is_identity(ac.final_nonlinearity) && ac.normalization_method == :identity
         banzhafs = target_vals
     elseif is_identity(ac.final_nonlinearity) && ac.normalization_method in (:zscore, :zscore_wt)
         # :zscore_wt shares this closed form. Banzhaf values are DIFFERENCES of
